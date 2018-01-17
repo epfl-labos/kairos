@@ -1,0 +1,6 @@
+compiler.compileProtoFiles=true
+compiler.protocFilePath=/media/pamela/DATA/pamela/bigc/big-c/hadoop-common-project/hadoop-common/src/main/proto/ZKFCProtocol.proto
+eclipse.preferences.version=1
+paths.directoryPaths=${workspace_loc\:/hadoop-hdfs/src/main/proto},${workspace_loc\:/hadoop-yarn-api/src/main/proto}
+paths.filesInMultipleDirectories=true
+paths.filesInOneDirectoryOnly=false

@@ -221,6 +221,7 @@ public class NMClientAsyncImpl extends NMClientAsync {
               " is already started or scheduled to start"));
     }
     try {
+      LOG.info("PAMELA startContainerAsync");
       events.put(new StartContainerEvent(container, containerLaunchContext));
     } catch (InterruptedException e) {
       LOG.warn("Exception when scheduling the event of starting Container " +
@@ -377,6 +378,7 @@ public class NMClientAsyncImpl extends NMClientAsync {
           Map<String, ByteBuffer> allServiceResponse =
               container.nmClientAsync.getClient().startContainer(
                   scEvent.getContainer(), scEvent.getContainerLaunchContext());
+          LOG.info("PAMELA transition started container ");
           try {
             container.nmClientAsync.getCallbackHandler().onContainerStarted(
                 containerId, allServiceResponse);

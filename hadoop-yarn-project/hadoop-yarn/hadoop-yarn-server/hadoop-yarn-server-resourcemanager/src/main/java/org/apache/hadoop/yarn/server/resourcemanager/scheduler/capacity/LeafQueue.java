@@ -90,11 +90,10 @@ public class LeafQueue extends AbstractCSQueue {
   private float userLimitFactor;
 
   protected int maxApplications;
-  
   protected int maxApplicationsPerUser;
   
   private float maxAMResourcePerQueuePercent;
-  
+
   private int   maxContainerOpportunity;
   
   private int nodeLocalityDelay;
@@ -143,7 +142,7 @@ public class LeafQueue extends AbstractCSQueue {
       String queueName, CSQueue parent, CSQueue old) throws IOException {
     super(cs, queueName, parent, old);
     this.scheduler = cs;
-   
+
     this.activeUsersManager = new ActiveUsersManager(metrics); 
 
     if(LOG.isDebugEnabled()) {
@@ -583,7 +582,6 @@ public class LeafQueue extends AbstractCSQueue {
      //该队列的最大资源限制
      Resource queueCap = Resources.max(resourceCalculator, lastClusterResource,
        absoluteCapacityResource, queueCurrentLimit);
-     
      return Resources.multiplyAndNormalizeUp( 
           resourceCalculator,
           queueCap, 
@@ -698,7 +696,7 @@ public class LeafQueue extends AbstractCSQueue {
     // Inform the activeUsersManager
     activeUsersManager.deactivateApplication(user, application);
     // Inform the parent queue
-    LOG.info("finish Application "+application.getId()+"by"+user);
+    LOG.info("finish Application "+application.getId()+" by "+user);
     
     getParent().finishApplication(application, user);
   }
@@ -709,8 +707,7 @@ public class LeafQueue extends AbstractCSQueue {
     synchronized (this) {
       removeApplicationAttempt(application, getUser(application.getUser()));
     }
-    
-    LOG.info("finish Application attempt"+application.getApplicationId()+"in queue"+queue);
+    LOG.info("finish Application attempt "+application.getApplicationId()+" in queue "+queue);
     
     getParent().finishApplicationAttempt(application, queue);
   }
@@ -779,8 +776,7 @@ public class LeafQueue extends AbstractCSQueue {
       FiCaSchedulerNode node, ResourceLimits currentResourceLimits) {
     updateCurrentResourceLimits(currentResourceLimits, clusterResource);
     
-    if(LOG.isDebugEnabled()) 
-    {
+    if(LOG.isDebugEnabled()) {
       LOG.info("assignContainers: node=" + node.getNodeName()
         + " #applications=" + activeApplications.size());
     }
@@ -1198,7 +1194,6 @@ public class LeafQueue extends AbstractCSQueue {
           " clusterCapacity: " + clusterResource
       );
       */
-    
     user.setUserResourceLimit(limit);
     return limit;
   }
@@ -1284,7 +1279,6 @@ public class LeafQueue extends AbstractCSQueue {
             " starvation=" + starvation);
       }
     }
-
     return (((starvation + requiredContainers) - reservedContainers) > 0);
   }
 
@@ -1381,8 +1375,6 @@ public class LeafQueue extends AbstractCSQueue {
     NodeId idToUnreserve =
         application.getNodeIdToUnreserve(priority, minimumUnreservedResource,
             resourceCalculator, clusterResource);
-    
-    
     if (idToUnreserve == null) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("checked to see if could unreserve for app but nothing "
@@ -1396,7 +1388,7 @@ public class LeafQueue extends AbstractCSQueue {
       return false;
     }
     
-   {
+ {
       LOG.info("unreserving for app: " + application.getApplicationId()
         + " on nodeId: " + idToUnreserve
         + " in order to replace reserved application and place it on node: "
@@ -1474,7 +1466,7 @@ public class LeafQueue extends AbstractCSQueue {
       }
 
       // 'Delay' off-switch，如果没有strict限制，则所有的请求都是off switch
-      ResourceRequest offSwitchRequest =  
+      ResourceRequest offSwitchRequest = 
           application.getResourceRequest(priority, ResourceRequest.ANY);
       long missedOpportunities = application.getSchedulingOpportunities(priority);
       //随着程序的执行，requiredContainers数目会逐渐的降低，该调度但是没调度则该opportunity就会增加
@@ -1674,7 +1666,7 @@ public class LeafQueue extends AbstractCSQueue {
 
     boolean needToUnreserve = Resources.greaterThan(resourceCalculator,clusterResource,
         currentResoureLimits.getAmountNeededUnreserve(), Resources.none());
-    
+
     if (availableContainers > 0) {
       // Allocate...
 
@@ -1901,9 +1893,9 @@ public class LeafQueue extends AbstractCSQueue {
     if(!isSuspend){
       metrics.setAvailableResourcesToUser(userName, application.getHeadroom());
     }
-    
-    LOG.info(getQueueName() + 
-            " used=" + queueUsage.getUsed() + " numContainers=" + numContainers +
+  
+    LOG.info(getQueueName() +
+        " used=" + queueUsage.getUsed() + " numContainers=" + numContainers +
             " headroom = " + application.getHeadroom() +
             " user-resources=" + user.getUsed()+"allocate resource:"+resource+
             " absUsed= "+getAbsoluteUsedCapacity()

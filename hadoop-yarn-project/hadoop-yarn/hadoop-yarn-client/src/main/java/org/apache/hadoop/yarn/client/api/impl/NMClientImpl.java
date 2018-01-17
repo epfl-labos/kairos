@@ -198,6 +198,7 @@ public class NMClientImpl extends NMClient {
         list.add(scRequest);
         StartContainersRequest allRequests =
             StartContainersRequest.newInstance(list);
+        LOG.info("PAMELA NMClientImpl calling startContainers, nr of requests "+list.size());
         StartContainersResponse response =
             proxy
                 .getContainerManagementProtocol().startContainers(allRequests);
