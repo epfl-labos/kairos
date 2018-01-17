@@ -1117,14 +1117,18 @@ public class ContainerManagerImpl extends CompositeService implements
 		 LOG.info("PAMELA ProcessorSharingMonitor started running!");
 	     while(running){
 			synchronized(processorSharingContainersList){				
-			    currentlyExecutingContainer = context.getContainers().get(processorSharingContainersList.poll());
+  	          if(processorSharingContainersList.size()>0) {
+  	        	ContainerId chosenContainerId = processorSharingContainersList.poll();
+			    currentlyExecutingContainer = context.getContainers().get(chosenContainerId);
+			    LOG.info("PAMELA ProcessorSharingMonitor currentlyExecutingContainer "+currentlyExecutingContainer+" tried to get "+chosenContainerId);
 			    LOG.info("PAMELA ProcessorSharingMonitor running, will take first container "+currentlyExecutingContainer.getContainerId()+" status "+ currentlyExecutingContainer.getContainerState());
 			    for(ContainerId containerId : processorSharingContainersList) {
 			        LOG.info("PAMELA remaining containers in list containerId "+containerId);          
 			    }
 			    //TODO here code to give more resources to currently executing container, need Container object!!
 			    //What to do with the time that takes a container to reduce resources? need to reduce sleep in container thread
-			 }
+			   }
+	    	 }
 			 // NOTE: only to make it work, sleep for shorter periods of time then verify if the container is done
 			 int leftProcessorSharingWindow = delay;
 			 while(leftProcessorSharingWindow > 0 && running) {
@@ -1132,25 +1136,24 @@ public class ContainerManagerImpl extends CompositeService implements
 				    Thread.sleep(fineGrainedMonitorInterval);
 					LOG.info("PAMELA ProcessorSharingMonitor running leftProcessorSharingWindow "+ leftProcessorSharingWindow + " currentlyExecutingContainer null? "+ (currentlyExecutingContainer == null));
 					// Queue was empty now there's a container there
-					if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
-						synchronized(processorSharingContainersList){				
-						    currentlyExecutingContainer = context.getContainers().get(processorSharingContainersList.poll());
-						}
+					synchronized(processorSharingContainersList){				
+ 					  if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
+						currentlyExecutingContainer = context.getContainers().get(processorSharingContainersList.poll());
+						
 						leftProcessorSharingWindow = delay;
 					    //TODO here code to give more resources to currently executing container, need Container object!!
 					    //What to do with the time that takes a container to reduce resources? need to reduce sleep in container thread
-						LOG.info("PAMELA currentlyExecutingContainer was null now will execute container "+ currentlyExecutingContainer.getContainerId());
-					}
+						LOG.info("PAMELA currentlyExecutingContainer WILL NOW EXECUTE container "+ currentlyExecutingContainer.getContainerId());
+					  }
 					
-					// Currently executing container finished
-					if (currentlyExecutingContainer != null && currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.DONE){
-						synchronized(processorSharingContainersList){				
-						    currentlyExecutingContainer = context.getContainers().get(processorSharingContainersList.poll());
-						}
+					  // Currently executing container finished
+					  if (currentlyExecutingContainer != null && currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.DONE && processorSharingContainersList.size()>0){
+						currentlyExecutingContainer = context.getContainers().get(processorSharingContainersList.poll());
 						leftProcessorSharingWindow = delay;
 						LOG.info("PAMELA currentlyExecutingContainer DONE now will execute container "+ currentlyExecutingContainer.getContainerId());						
 					    //TODO here code to give more resources to currently executing container, need Container object!!
 					    //What to do with the time that takes a container to reduce resources? need to reduce sleep in container thread
+					}
 					}
 				 } catch (InterruptedException e) {
 				     e.printStackTrace();

@@ -275,7 +275,6 @@ public class NodeManager extends CompositeService
   protected void serviceStart() throws Exception {
     try {
       doSecureLogin();
-      LOG.info("PAMELA running processorSharingEventGenerator");
     } catch (IOException e) {
       throw new YarnRuntimeException("Failed NodeManager login", e);
     }
