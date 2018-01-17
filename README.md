@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # BIG-C
 
 This project enables YARN performing fast and low-cost preemption by leveraging Docker.
@@ -71,4 +72,7 @@ This parameter sets the SR_NUM(refer paper for detail) for queue root.default
 For more information, please refer our paper or contact ynjassionchen@gmail.com.
 
 
+=======
+# preemption-yarn-implementation
+>>>>>>> 730097a5e57a8740be350ae4242bcef68b917aaa
 
