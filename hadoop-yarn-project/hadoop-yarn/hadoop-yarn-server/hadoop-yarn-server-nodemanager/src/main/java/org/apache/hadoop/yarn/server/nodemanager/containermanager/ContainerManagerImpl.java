@@ -1102,6 +1102,8 @@ public class ContainerManagerImpl extends CompositeService implements
       Context context;
       boolean running;
       int fineGrainedMonitorInterval;
+      int minimumCpu;
+      int minimumMemory;
 	  
 	  public ProcessorSharingMonitor(Context context, int delay, int fineGrainedMonitorInterval) {
           LOG.info("PAMELA ProcessorSharingMonitor created");
@@ -1110,66 +1112,74 @@ public class ContainerManagerImpl extends CompositeService implements
           this.context = context;
           this.running = true;
           this.fineGrainedMonitorInterval = fineGrainedMonitorInterval;
+          this.minimumCpu = 1;//0.001;
+          this.minimumMemory = 64;
 	  }
 	  
 	  @Override
 	  public void run() {
 		 LOG.info("PAMELA ProcessorSharingMonitor started running!");
 	     while(running){
-			synchronized(processorSharingContainersList){				
-  	          if(processorSharingContainersList.size()>0) {
-  	        	ContainerId chosenContainerId = processorSharingContainersList.poll();
-			    currentlyExecutingContainer = context.getContainers().get(chosenContainerId);
-			    LOG.info("PAMELA ProcessorSharingMonitor currentlyExecutingContainer "+currentlyExecutingContainer+" tried to get "+chosenContainerId);
-			    LOG.info("PAMELA ProcessorSharingMonitor running, will take first container "+currentlyExecutingContainer.getContainerId()+" status "+ currentlyExecutingContainer.getContainerState());
-			    for(ContainerId containerId : processorSharingContainersList) {
-			        LOG.info("PAMELA remaining containers in list containerId "+containerId);          
-			    }
-			    //TODO here code to give more resources to currently executing container, need Container object!!
-			    //What to do with the time that takes a container to reduce resources? need to reduce sleep in container thread
-			   }
-	    	 }
 			 // NOTE: only to make it work, sleep for shorter periods of time then verify if the container is done
 			 int leftProcessorSharingWindow = delay;
 			 while(leftProcessorSharingWindow > 0 && running) {
-				 try {
-				    Thread.sleep(fineGrainedMonitorInterval);
-					LOG.info("PAMELA ProcessorSharingMonitor running leftProcessorSharingWindow "+ leftProcessorSharingWindow + " currentlyExecutingContainer null? "+ (currentlyExecutingContainer == null));
-					// Queue was empty now there's a container there
-					synchronized(processorSharingContainersList){				
+				 try {			    
+					synchronized(processorSharingContainersList){						
+					  // Previous Container has been suspended or Queue was empty now there's a container there
  					  if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
-						currentlyExecutingContainer = context.getContainers().get(processorSharingContainersList.poll());
+ 						 Container chosenContainer = context.getContainers().get(processorSharingContainersList.poll());
+						 for(ContainerId contId : processorSharingContainersList) {
+						        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after poll containerId "+contId);
+						 }
 						
-						leftProcessorSharingWindow = delay;
-					    //TODO here code to give more resources to currently executing container, need Container object!!
-					    //What to do with the time that takes a container to reduce resources? need to reduce sleep in container thread
-						LOG.info("PAMELA currentlyExecutingContainer WILL NOW EXECUTE container "+ currentlyExecutingContainer.getContainerId());
+						if(chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
+							currentlyExecutingContainer = chosenContainer;
+					        //XXX RESUME
+					        LOG.info("PAMELA ProcessorSharingMonitor RESUMING container "+currentlyExecutingContainer.getContainerId()+" status "+ currentlyExecutingContainer.getContainerState()
+			        	       +" with resources "+currentlyExecutingContainer.getResource());
+						    NodeContainerUpdate nodeContainerUpdate = NodeContainerUpdate.newInstance(currentlyExecutingContainer.getContainerId(), 
+								currentlyExecutingContainer.getResource().getMemory(), currentlyExecutingContainer.getResource().getVirtualCores(),false,true);
+					        currentlyExecutingContainer.handle(new ContainerResourceUpdate(currentlyExecutingContainer.getContainerId(),nodeContainerUpdate));
+						    leftProcessorSharingWindow = delay;
+						}
 					  }
 					
-					  // Currently executing container finished
-					  if (currentlyExecutingContainer != null && currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.DONE && processorSharingContainersList.size()>0){
-						currentlyExecutingContainer = context.getContainers().get(processorSharingContainersList.poll());
-						leftProcessorSharingWindow = delay;
-						LOG.info("PAMELA currentlyExecutingContainer DONE now will execute container "+ currentlyExecutingContainer.getContainerId());						
-					    //TODO here code to give more resources to currently executing container, need Container object!!
-					    //What to do with the time that takes a container to reduce resources? need to reduce sleep in container thread
+					  // currentlyExecutingContainer is DONE. Dont wait until PS window is done.
+					  if (currentlyExecutingContainer != null && currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.DONE){
+						LOG.info("PAMELA currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId()+" DONE. leftProcessorSharingWindow "+leftProcessorSharingWindow);
+						currentlyExecutingContainer = null;
+						leftProcessorSharingWindow = 0; //to force resuming if applicable
+ 					  }
 					}
-					}
+					if(leftProcessorSharingWindow > 0)
+				        Thread.sleep(fineGrainedMonitorInterval);
+
 				 } catch (InterruptedException e) {
 				     e.printStackTrace();
 				 }
 				 leftProcessorSharingWindow -= fineGrainedMonitorInterval;
 			 }
 
+			// PROCESSOR SHARING STOPPING SWITCHING CONTAINERS 
 			if(currentlyExecutingContainer != null)
 			synchronized(processorSharingContainersList){
-			  LOG.info("PAMELA finished PS window. Put back container to queue");
-			  processorSharingContainersList.add(currentlyExecutingContainer.getContainerId());
-			  currentlyExecutingContainer = null;
-			  //TODO here code to take out resources from currently executing container
-			}              
+			  LOG.info("PAMELA ProcessorSharingMonitor finished PS window. currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId());
+			  // If only one container in node, dont suspend it just let it run
+			  //if (processorSharingContainersList.size() > 0) {
+			  if (currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING) {
+			      //XXX SUSPEND 
+				  LOG.info("PAMELA ProcessorSharingMonitor SUSPENDING currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId()+" status "+ currentlyExecutingContainer.getContainerState()
+      					+" with resources "+currentlyExecutingContainer.getResource());
+			      NodeContainerUpdate nodeContainerUpdate= NodeContainerUpdate.newInstance(currentlyExecutingContainer.getContainerId(), 
+					      currentlyExecutingContainer.getResource().getMemory()-minimumMemory, currentlyExecutingContainer.getResource().getVirtualCores()-minimumCpu,true,false);
+
+			      currentlyExecutingContainer.handle(new ContainerResourceUpdate(currentlyExecutingContainer.getContainerId(),nodeContainerUpdate));
+			      processorSharingContainersList.add(currentlyExecutingContainer.getContainerId());
+			      LOG.info("PAMELA Put back container "+currentlyExecutingContainer.getContainerId()+" to queue");
+			  }
+			  // }
+			}
 	     }
-	     LOG.info("PAMELA finished running ProcessorSharingMonitor");
 	  }
 
 	  //Do this after the container started, start with the minimum resources then give more if this is currently executing container
@@ -1177,7 +1187,9 @@ public class ContainerManagerImpl extends CompositeService implements
 	     synchronized(processorSharingContainersList){
 	    	 LOG.info("PAMELA ProcessorSharingMonitor adding container "+containerId);
 	         processorSharingContainersList.add(containerId);
-             //TODO if nothing running then add this, dont wait until delay is met!!
+			 for(ContainerId contId : processorSharingContainersList) {
+			        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after add containerId "+contId);          
+			 }
 	     }
 	  }
           
@@ -1259,7 +1271,6 @@ public class ContainerManagerImpl extends CompositeService implements
     			(CMgrUpdateContainersEvent) event;
     	for(NodeContainerUpdate containerUpdate : containerUpdateEvents.getNodeContainerUpdate()){            
         	LOG.info("PAMELA UPDATE_CONTAINERS eventhandler is "+this.dispatcher.getEventHandler().toString()+" dispatcher is "+this.dispatcher.getName());
-        	//this.processorSharingMonitor.addContainer(containerUpdate.getContainerId().toString());
     		this.dispatcher.getEventHandler().handle(
     			new ContainerResourceUpdate(containerUpdate.getContainerId(),containerUpdate));
     	}
