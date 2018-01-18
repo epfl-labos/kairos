@@ -1127,12 +1127,14 @@ public class ContainerManagerImpl extends CompositeService implements
 					synchronized(processorSharingContainersList){						
 					  // Previous Container has been suspended or Queue was empty now there's a container there
  					  if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
- 						 Container chosenContainer = context.getContainers().get(processorSharingContainersList.poll());
+ 						 ContainerId chosenContainerId = processorSharingContainersList.poll();
+ 						 Container chosenContainer = context.getContainers().get(chosenContainerId);
 						 for(ContainerId contId : processorSharingContainersList) {
 						        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after poll containerId "+contId);
 						 }
 						
-						if(chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
+						LOG.info("PAMELA ProcessorSharingMonitor trying to get container "+chosenContainerId +" result is null? "+(chosenContainer==null));
+						 if(chosenContainer != null && chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
 							currentlyExecutingContainer = chosenContainer;
 					        //XXX RESUME
 					        LOG.info("PAMELA ProcessorSharingMonitor RESUMING container "+currentlyExecutingContainer.getContainerId()+" status "+ currentlyExecutingContainer.getContainerState()
