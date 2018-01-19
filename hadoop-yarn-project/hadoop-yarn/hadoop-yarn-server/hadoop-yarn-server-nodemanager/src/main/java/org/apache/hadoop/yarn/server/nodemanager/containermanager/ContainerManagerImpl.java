@@ -229,7 +229,7 @@ public class ContainerManagerImpl extends CompositeService implements
     this.readLock = lock.readLock();
     this.writeLock = lock.writeLock();
     //Change the delay to come from a config file
-    this.processorSharingMonitor = new ProcessorSharingMonitor(context,1000,100);
+    this.processorSharingMonitor = new ProcessorSharingMonitor(context,5000,500);
   }
 
   @Override
@@ -1123,15 +1123,14 @@ public class ContainerManagerImpl extends CompositeService implements
 			 // NOTE: only to make it work, sleep for shorter periods of time then verify if the container is done
 			 int leftProcessorSharingWindow = delay;
 			 while(leftProcessorSharingWindow > 0 && running) {
-				 try {			    
-					synchronized(processorSharingContainersList){						
-					  // Previous Container has been suspended or Queue was empty now there's a container there
- 					  if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
- 						 Container chosenContainer = context.getContainers().get(processorSharingContainersList.poll());
-						 for(ContainerId contId : processorSharingContainersList) {
-						        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after poll containerId "+contId);
-						 }
+				 synchronized(processorSharingContainersList){						
+					 // Previous Container has been suspended or Queue was empty now there's a container there
+					 if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
+ 						 ContainerId chosenContainerId = processorSharingContainersList.poll();
+ 						 Container chosenContainer = context.getContainers().get(chosenContainerId);
 						
+ 						 LOG.info("PAMELA ProcessorSharingMonitor trying to get container "+chosenContainerId +" is it null? "+(chosenContainer==null));
+						// if(chosenContainer != null && chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
 						if(chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
 							currentlyExecutingContainer = chosenContainer;
 					        //XXX RESUME
@@ -1141,16 +1140,20 @@ public class ContainerManagerImpl extends CompositeService implements
 								currentlyExecutingContainer.getResource().getMemory(), currentlyExecutingContainer.getResource().getVirtualCores(),false,true);
 					        currentlyExecutingContainer.handle(new ContainerResourceUpdate(currentlyExecutingContainer.getContainerId(),nodeContainerUpdate));
 						    leftProcessorSharingWindow = delay;
+						} else {
+					        LOG.info("PAMELA ProcessorSharingMonitor container "+chosenContainerId+" status "+ chosenContainer.getContainerState()+" putting back to list");
+					        processorSharingContainersList.add(chosenContainerId);
 						}
-					  }
+					 }
 					
-					  // currentlyExecutingContainer is DONE. Dont wait until PS window is done.
-					  if (currentlyExecutingContainer != null && currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.DONE){
+					 // currentlyExecutingContainer is DONE. Dont wait until PS window is done.
+					 if (currentlyExecutingContainer != null && currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.DONE){
 						LOG.info("PAMELA currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId()+" DONE. leftProcessorSharingWindow "+leftProcessorSharingWindow);
 						currentlyExecutingContainer = null;
 						leftProcessorSharingWindow = 0; //to force resuming if applicable
- 					  }
-					}
+					 }
+				 }
+				 try {			    
 					if(leftProcessorSharingWindow > 0)
 				        Thread.sleep(fineGrainedMonitorInterval);
 
@@ -1174,10 +1177,10 @@ public class ContainerManagerImpl extends CompositeService implements
 					      currentlyExecutingContainer.getResource().getMemory()-minimumMemory, currentlyExecutingContainer.getResource().getVirtualCores()-minimumCpu,true,false);
 
 			      currentlyExecutingContainer.handle(new ContainerResourceUpdate(currentlyExecutingContainer.getContainerId(),nodeContainerUpdate));
-			      processorSharingContainersList.add(currentlyExecutingContainer.getContainerId());
 			      LOG.info("PAMELA Put back container "+currentlyExecutingContainer.getContainerId()+" to queue");
+			      processorSharingContainersList.add(currentlyExecutingContainer.getContainerId());
+			      currentlyExecutingContainer = null;
 			  }
-			  // }
 			}
 	     }
 	  }
@@ -1185,8 +1188,8 @@ public class ContainerManagerImpl extends CompositeService implements
 	  //Do this after the container started, start with the minimum resources then give more if this is currently executing container
 	  public void addContainer(ContainerId containerId){
 	     synchronized(processorSharingContainersList){
-	    	 LOG.info("PAMELA ProcessorSharingMonitor adding container "+containerId);
 	         processorSharingContainersList.add(containerId);
+	    	 LOG.info("PAMELA ProcessorSharingMonitor adding container "+containerId+" number of containers now "+processorSharingContainersList.size());
 			 for(ContainerId contId : processorSharingContainersList) {
 			        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after add containerId "+contId);          
 			 }
