@@ -942,8 +942,8 @@ public void run(){
 	
 	while(stateMachine.getCurrentState() == ContainerState.RUNNING){
 		
-	  LOG.info("thread loop for container "+getContainerId()+" memorysize "+memoryUpdateActorList.size()
-	  		                                                +" cpusize "+cpuUpdateActorList.size());
+	  //LOG.info("thread loop for container "+getContainerId()+" memorysize "+memoryUpdateActorList.size()
+	  //		                                                +" cpusize "+cpuUpdateActorList.size());
 	  synchronized(quotaUpdateActorList){	
 	   //first check the quota list if it is empty
 	   if(quotaUpdateActorList.size() > 0){  
@@ -976,7 +976,7 @@ public void run(){
 	   //if we come here it means we need to sleep for 3s
 	  //LOG.info("PAMELA container thread going to sleep for 1 sec ");
 	  try {
-		    Thread.sleep(1000);
+		    Thread.sleep(100);
 		} catch (InterruptedException e) {
 		    e.printStackTrace();
 		}

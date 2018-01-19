@@ -229,7 +229,7 @@ public class ContainerManagerImpl extends CompositeService implements
     this.readLock = lock.readLock();
     this.writeLock = lock.writeLock();
     //Change the delay to come from a config file
-    this.processorSharingMonitor = new ProcessorSharingMonitor(context,1000,100);
+    this.processorSharingMonitor = new ProcessorSharingMonitor(context,5000,500);
   }
 
   @Override
@@ -1127,14 +1127,12 @@ public class ContainerManagerImpl extends CompositeService implements
 					synchronized(processorSharingContainersList){						
 					  // Previous Container has been suspended or Queue was empty now there's a container there
  					  if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
- 						 ContainerId chosenContainerId = processorSharingContainersList.poll();
- 						 Container chosenContainer = context.getContainers().get(chosenContainerId);
+ 						 Container chosenContainer = context.getContainers().get(processorSharingContainersList.poll());
 						 for(ContainerId contId : processorSharingContainersList) {
 						        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after poll containerId "+contId);
 						 }
 						
-						LOG.info("PAMELA ProcessorSharingMonitor trying to get container "+chosenContainerId +" result is null? "+(chosenContainer==null));
-						 if(chosenContainer != null && chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
+						if(chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
 							currentlyExecutingContainer = chosenContainer;
 					        //XXX RESUME
 					        LOG.info("PAMELA ProcessorSharingMonitor RESUMING container "+currentlyExecutingContainer.getContainerId()+" status "+ currentlyExecutingContainer.getContainerState()
