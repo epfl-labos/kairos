@@ -1185,8 +1185,8 @@ public class ContainerManagerImpl extends CompositeService implements
 	  //Do this after the container started, start with the minimum resources then give more if this is currently executing container
 	  public void addContainer(ContainerId containerId){
 	     synchronized(processorSharingContainersList){
-	    	 LOG.info("PAMELA ProcessorSharingMonitor adding container "+containerId);
 	         processorSharingContainersList.add(containerId);
+	    	 LOG.info("PAMELA ProcessorSharingMonitor adding container "+containerId + " number of containers now "+processorSharingContainersList.size());
 			 for(ContainerId contId : processorSharingContainersList) {
 			        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after add containerId "+contId);          
 			 }
