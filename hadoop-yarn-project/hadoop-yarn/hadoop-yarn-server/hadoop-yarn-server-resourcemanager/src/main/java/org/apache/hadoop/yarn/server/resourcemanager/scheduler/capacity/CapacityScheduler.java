@@ -1185,6 +1185,7 @@ public class CapacityScheduler extends
       RMNode node = nodeUpdatedEvent.getRMNode();
       nodeUpdate(node);
       if (!scheduleAsynchronously) {
+    	LOG.info("PAMELA Nodeupdated going to allocate containers "+node.getNodeID());
         allocateContainersToNode(getNode(node.getNodeID()));
       }
     }

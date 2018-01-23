@@ -1135,7 +1135,7 @@ public class ContainerManagerImpl extends CompositeService implements
 
  						 Container chosenContainer = context.getContainers().get(processorSharingContainersList.poll());
 						 for(ContainerId contId : processorSharingContainersList) {
-						        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after poll containerId "+contId);
+						    LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after poll containerId "+contId);
 						 }
 						
 						if(chosenContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING){
@@ -1181,9 +1181,9 @@ public class ContainerManagerImpl extends CompositeService implements
 					      currentlyExecutingContainer.getResource().getMemory()-minimumMemory, currentlyExecutingContainer.getResource().getVirtualCores()-minimumCpu,true,false);
 
 			      currentlyExecutingContainer.handle(new ContainerResourceUpdate(currentlyExecutingContainer.getContainerId(),nodeContainerUpdate));
+			      LOG.info("PAMELA ProcessorSharingMonitor Put back container "+currentlyExecutingContainer.getContainerId()+" to queue");
 			      processorSharingContainersList.add(currentlyExecutingContainer.getContainerId());
 			      currentlyExecutingContainer = null;
-			      LOG.info("PAMELA Put back container "+currentlyExecutingContainer.getContainerId()+" to queue");
 			  }
 			  // }
 			}
