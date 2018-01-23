@@ -163,6 +163,7 @@ public class AppSchedulingInfo {
 
       if (asks == null) {                      //在该优先级还没有请求，所以新建一个请求
         asks = new ConcurrentHashMap<String, ResourceRequest>();
+        LOG.info("PAMELA adding EMPTY request for priority "+priority);
         this.requests.put(priority, asks);
         this.priorities.add(priority);
       }

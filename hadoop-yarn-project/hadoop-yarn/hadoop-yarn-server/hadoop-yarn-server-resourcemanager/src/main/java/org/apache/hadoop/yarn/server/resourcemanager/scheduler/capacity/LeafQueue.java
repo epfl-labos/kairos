@@ -776,10 +776,10 @@ public class LeafQueue extends AbstractCSQueue {
       FiCaSchedulerNode node, ResourceLimits currentResourceLimits) {
     updateCurrentResourceLimits(currentResourceLimits, clusterResource);
     
-    if(LOG.isDebugEnabled()) {
+    //if(LOG.isDebugEnabled()) {
       LOG.info("assignContainers: node=" + node.getNodeName()
         + " #applications=" + activeApplications.size());
-    }
+    //}
     
     // if our queue cannot access this node, just return
     if (!SchedulerUtils.checkQueueAccessToNode(accessibleLabels,
@@ -880,11 +880,11 @@ public class LeafQueue extends AbstractCSQueue {
     // Try to assign containers to applications in order。这是核心的分配算法
     for (FiCaSchedulerApp application : activeApplications) {
       
-      if(LOG.isDebugEnabled()) {
-        LOG.debug("pre-assignContainers for application "
+      //if(LOG.isDebugEnabled()) {
+        LOG.info("pre-assignContainers for application "
         + application.getApplicationId());
         application.showRequests();
-      }
+      //}
 
       synchronized (application) {
         // Check if this resource is on the blacklist
@@ -899,6 +899,7 @@ public class LeafQueue extends AbstractCSQueue {
           if (null == anyRequest) {
             continue;
           }
+          LOG.info("PAMELA get application "+application.getApplicationId()+" request numContainers "+anyRequest.getNumContainers()+" capability "+anyRequest.getCapability()+" totalRequiredResources "+ application.getTotalRequiredResources(priority)+ " priority "+priority);
           
           // Required resource
           Resource required = anyRequest.getCapability();
@@ -948,7 +949,8 @@ public class LeafQueue extends AbstractCSQueue {
           CSAssignment assignment =  
             assignContainersOnNode(clusterResource, node, application, priority, 
                 null, currentResourceLimits);
-
+          LOG.info("PAMELA application "+application.getApplicationId()+" got assignment on node "+node.getNodeName()+" resource assigned "+assignment.getResource());
+          
           // Did the application skip this node?
           if (assignment.getSkipped()) {
             // Don't count 'skipped nodes' as a scheduling opportunity!
@@ -1611,7 +1613,7 @@ public class LeafQueue extends AbstractCSQueue {
       ResourceRequest request, NodeType type, RMContainer rmContainer,
       MutableObject createdContainer, ResourceLimits currentResoureLimits) {
     {
-      LOG.debug("assignContainers: node=" + node.getNodeName()
+      LOG.info("assignContainers: node=" + node.getNodeName()
         + " application=" + application.getApplicationId()
         + " priority=" + priority.getPriority()
         + " request=" + request + " type=" + type);
@@ -1634,6 +1636,7 @@ public class LeafQueue extends AbstractCSQueue {
     Resource available = node.getAvailableResource();
     Resource totalResource = node.getTotalResource();
 
+    LOG.info("assignContainers capability " + capability + " node "+ node.getNodeName() +" available " + available+ " totalResource "+ totalResource);
     //节点资源不够的情况，
     if (!Resources.lessThanOrEqual(resourceCalculator, clusterResource,
         capability, totalResource)) {

@@ -976,7 +976,7 @@ public void run(){
 	   //if we come here it means we need to sleep for 3s
 	  //LOG.info("PAMELA container thread going to sleep for 1 sec ");
 	  try {
-		    Thread.sleep(100);
+		    Thread.sleep(50);
 		} catch (InterruptedException e) {
 		    e.printStackTrace();
 		}

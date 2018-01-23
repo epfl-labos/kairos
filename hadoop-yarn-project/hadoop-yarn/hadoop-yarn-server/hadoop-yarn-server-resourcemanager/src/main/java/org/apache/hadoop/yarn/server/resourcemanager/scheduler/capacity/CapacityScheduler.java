@@ -398,11 +398,13 @@ public class CapacityScheduler extends
     int start = random.nextInt(nodes.size());
     for (FiCaSchedulerNode node : nodes) {
       if (current++ >= start) {
+    	LOG.info("PAMELA scheduling in node "+node.getNodeID()+" note that the starting point is randomized.");  
         cs.allocateContainersToNode(node);
       }
     }
     // Now, just get everyone to be safe
     for (FiCaSchedulerNode node : nodes) {
+      LOG.info("PAMELA scheduling in node "+node.getNodeID()+" all included. Will sleep for "+cs.getAsyncScheduleInterval());  
       cs.allocateContainersToNode(node);
     }
     try {
@@ -1115,7 +1117,7 @@ public class CapacityScheduler extends
     if (node.getReservedContainer() == null) {
       if (calculator.computeAvailableContainers(node.getAvailableResource(),
         minimumAllocation) > 0) {
-        if (LOG.isDebugEnabled())
+        //if (LOG.isDebugEnabled())
     	{
           LOG.info("Trying to schedule on node: " + node.getNodeName() +
               ", available: " + node.getAvailableResource());
@@ -1437,9 +1439,9 @@ public class CapacityScheduler extends
   @Override
   public void suspendContianer(RMContainer cont, Resource toPreempt) {
   	// TODO Auto-generated method stub
-	if (LOG.isDebugEnabled()) {
+	//if (LOG.isDebugEnabled()) {
 	      LOG.debug("SUSPEND_CONTAINER: container" + cont.toString());
-	}
+	//}
 	
 	LOG.info("capacity scheduler try to preempt "+cont.getContainerId()+" resource: "+toPreempt);
 	

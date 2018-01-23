@@ -229,7 +229,7 @@ public class ContainerManagerImpl extends CompositeService implements
     this.readLock = lock.readLock();
     this.writeLock = lock.writeLock();
     //Change the delay to come from a config file
-    this.processorSharingMonitor = new ProcessorSharingMonitor(context,5000,500);
+    this.processorSharingMonitor = new ProcessorSharingMonitor(context,1000,100);
   }
 
   @Override
@@ -1124,9 +1124,15 @@ public class ContainerManagerImpl extends CompositeService implements
 			 int leftProcessorSharingWindow = delay;
 			 while(leftProcessorSharingWindow > 0 && running) {
 				 try {			    
-					synchronized(processorSharingContainersList){						
+					synchronized(processorSharingContainersList){
+					  LOG.info("PAMELA ProcessorSharingMonitor BEFORE leftProcessorSharingWindow "+leftProcessorSharingWindow+" currentlyExecutingContainer "+currentlyExecutingContainer + " number of containers here "+ processorSharingContainersList.size());	
 					  // Previous Container has been suspended or Queue was empty now there's a container there
  					  if(currentlyExecutingContainer == null && processorSharingContainersList.size() > 0) {
+ 						 if (! context.getContainers().containsKey(processorSharingContainersList.peek())) {
+ 							LOG.info("PAMELA context container "+processorSharingContainersList.peek()+" does not exist anymore!!!! Getting the next one.");
+ 							processorSharingContainersList.poll();
+ 						 }
+
  						 Container chosenContainer = context.getContainers().get(processorSharingContainersList.poll());
 						 for(ContainerId contId : processorSharingContainersList) {
 						        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after poll containerId "+contId);
@@ -1151,7 +1157,8 @@ public class ContainerManagerImpl extends CompositeService implements
 						leftProcessorSharingWindow = 0; //to force resuming if applicable
  					  }
 					}
-					if(leftProcessorSharingWindow > 0)
+					  LOG.info("PAMELA ProcessorSharingMonitor AFTER leftProcessorSharingWindow "+leftProcessorSharingWindow+" currentlyExecutingContainer "+currentlyExecutingContainer);
+					  if(leftProcessorSharingWindow > 0)
 				        Thread.sleep(fineGrainedMonitorInterval);
 
 				 } catch (InterruptedException e) {
@@ -1168,13 +1175,14 @@ public class ContainerManagerImpl extends CompositeService implements
 			  //if (processorSharingContainersList.size() > 0) {
 			  if (currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING) {
 			      //XXX SUSPEND 
-				  LOG.info("PAMELA ProcessorSharingMonitor SUSPENDING currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId()+" status "+ currentlyExecutingContainer.getContainerState()
+				  LOG.info("PAMELA ProcessorSharingMonitor SUSPENDING currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId()+" state "+ currentlyExecutingContainer.getContainerState()
       					+" with resources "+currentlyExecutingContainer.getResource());
 			      NodeContainerUpdate nodeContainerUpdate= NodeContainerUpdate.newInstance(currentlyExecutingContainer.getContainerId(), 
 					      currentlyExecutingContainer.getResource().getMemory()-minimumMemory, currentlyExecutingContainer.getResource().getVirtualCores()-minimumCpu,true,false);
 
 			      currentlyExecutingContainer.handle(new ContainerResourceUpdate(currentlyExecutingContainer.getContainerId(),nodeContainerUpdate));
 			      processorSharingContainersList.add(currentlyExecutingContainer.getContainerId());
+			      currentlyExecutingContainer = null;
 			      LOG.info("PAMELA Put back container "+currentlyExecutingContainer.getContainerId()+" to queue");
 			  }
 			  // }
@@ -1188,7 +1196,7 @@ public class ContainerManagerImpl extends CompositeService implements
 	         processorSharingContainersList.add(containerId);
 	    	 LOG.info("PAMELA ProcessorSharingMonitor adding container "+containerId + " number of containers now "+processorSharingContainersList.size());
 			 for(ContainerId contId : processorSharingContainersList) {
-			        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after add containerId "+contId);          
+			        LOG.info("PAMELA ProcessorSharingMonitor processorSharingContainersList after add containerId "+contId+" state "+context.getContainers().get(contId).getContainerState());          
 			 }
 	     }
 	  }

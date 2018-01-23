@@ -467,6 +467,7 @@ public class ParentQueue extends AbstractCSQueue {
   }
 
   private boolean canAssign(Resource clusterResource, FiCaSchedulerNode node) {
+	LOG.info("PAMELA node "+node.getNodeID()+" available mem "+node.getAvailableResource().getMemory()+" minimumAllocation "+ minimumAllocation.getMemory()+" active containers "+node.getNumContainers());  
     return (node.getReservedContainer() == null) && 
         Resources.greaterThanOrEqual(resourceCalculator, clusterResource, 
             node.getAvailableResource(), minimumAllocation);
@@ -515,7 +516,7 @@ public class ParentQueue extends AbstractCSQueue {
     for (Iterator<CSQueue> iter = childQueues.iterator(); iter.hasNext();) {
       CSQueue childQueue = iter.next();
       if(LOG.isDebugEnabled()) {
-        LOG.debug("Trying to assign to queue: " + childQueue.getQueuePath()
+        LOG.info("Trying to assign to queue: " + childQueue.getQueuePath()
           + " stats: " + childQueue);
       }
       
@@ -524,6 +525,7 @@ public class ParentQueue extends AbstractCSQueue {
           getResourceLimitsOfChild(childQueue, cluster, limits);
       
       assignment = childQueue.assignContainers(cluster, node, childLimits);
+      LOG.info("PAMELA assigned to childQueue "+assignment.getResource());
      if(LOG.isDebugEnabled())
       {
         LOG.info("Assigned to queue: " + childQueue.getQueuePath() +
