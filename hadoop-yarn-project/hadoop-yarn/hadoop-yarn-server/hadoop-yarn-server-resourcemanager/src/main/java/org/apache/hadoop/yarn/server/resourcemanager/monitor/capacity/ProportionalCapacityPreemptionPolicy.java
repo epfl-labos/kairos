@@ -712,7 +712,7 @@ public class ProportionalCapacityPreemptionPolicy implements SchedulingEditPolic
       }
       // we act only if we are violating balance by more than
       // maxIgnoredOverCapacity
-      LOG.info("PAMELA calculator "+rc.getClass().getName()+" clusterResource " + clusterResource + " qT.current " + qT.current + " guaranteed " + qT.guaranteed + "* 1.0 + "+maxIgnoredOverCapacity);
+      //LOG.info("PAMELA calculator "+rc.getClass().getName()+" clusterResource " + clusterResource + " qT.current " + qT.current + " guaranteed " + qT.guaranteed + "* 1.0 + "+maxIgnoredOverCapacity);
       if (Resources.greaterThan(rc, clusterResource, qT.current,
           Resources.multiply(qT.guaranteed, 1.0 + maxIgnoredOverCapacity))) {
         // we introduce a dampening factor naturalTerminationFactor that

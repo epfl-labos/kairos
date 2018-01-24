@@ -309,7 +309,7 @@ public class ParentQueue extends AbstractCSQueue {
             " is STOPPED. Cannot accept submission of application: " +
             applicationId);
       }
-
+      LOG.info("PAMELA going to addApplication "+applicationId+" to ParentQueue");
       addApplication(applicationId, user);
     }
     
@@ -467,10 +467,11 @@ public class ParentQueue extends AbstractCSQueue {
   }
 
   private boolean canAssign(Resource clusterResource, FiCaSchedulerNode node) {
-	LOG.info("PAMELA node "+node.getNodeID()+" available mem "+node.getAvailableResource().getMemory()+" minimumAllocation "+ minimumAllocation.getMemory()+" active containers "+node.getNumContainers());  
-    return (node.getReservedContainer() == null) && 
-        Resources.greaterThanOrEqual(resourceCalculator, clusterResource, 
-            node.getAvailableResource(), minimumAllocation);
+	LOG.info("PAMELA node "+node.getNodeID()+" available mem "+node.getAvailableResource().getMemory()+"> minimumAllocation "+ minimumAllocation.getMemory()+"? active containers "+node.getNumContainers());
+	return (node.getNumContainers()<2);
+    //return (node.getReservedContainer() == null) && 
+    //    Resources.greaterThanOrEqual(resourceCalculator, clusterResource, 
+     //       node.getAvailableResource(), minimumAllocation);
   }
   
   private ResourceLimits getResourceLimitsOfChild(CSQueue child,
