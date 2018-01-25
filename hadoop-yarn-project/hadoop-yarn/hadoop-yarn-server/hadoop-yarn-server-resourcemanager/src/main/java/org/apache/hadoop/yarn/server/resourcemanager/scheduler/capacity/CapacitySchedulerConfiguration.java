@@ -86,7 +86,7 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
     PREFIX + "processorsharing.maximum-concurrent-containers-node";
 
   @Private
-  public static final int DEFAULT_MAXIMUM_CONTAINERS_PER_NODE = 2;
+  public static final int DEFAULT_MAXIMUM_CONTAINERS_PER_NODE = 1;
   
   @Private
   public static final String QUEUES = "queues";

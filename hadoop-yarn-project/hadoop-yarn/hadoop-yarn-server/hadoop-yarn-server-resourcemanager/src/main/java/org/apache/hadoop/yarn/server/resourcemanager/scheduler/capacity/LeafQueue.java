@@ -1664,8 +1664,9 @@ public class LeafQueue extends AbstractCSQueue {
         application, priority, capability);
 
     // Can we allocate a container on this node?
-    //int availableContainers = resourceCalculator.computeAvailableContainers(available, capability);
-    int availableContainers = this.maxContainersPerNode - node.getRunningContainers().size();
+    int availableContainers = resourceCalculator.computeAvailableContainers(available, capability);
+    if (this.maxContainersPerNode > 1)
+        availableContainers = this.maxContainersPerNode - node.getRunningContainers().size();
     LOG.info("PAMELA availableContainers would have been "+available.getMemory()/capability.getMemory()+ " instead we are saying it has " + availableContainers + " availableContainers, numRunningContainers " + node.getRunningContainers().size());
     
     boolean needToUnreserve = Resources.greaterThan(resourceCalculator,clusterResource,
