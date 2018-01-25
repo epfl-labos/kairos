@@ -180,6 +180,9 @@ public class ContainerManagerImpl extends CompositeService implements
   private long waitForContainersOnShutdownMillis;
 
   //ProcessorSharing
+  private boolean processorSharingEnabled;
+  private long processorSharingWindow;
+  private int processorSharingFineGrainedInterval;
   private ProcessorSharingMonitor processorSharingMonitor;
 
   public ContainerManagerImpl(Context context, ContainerExecutor exec,
@@ -228,8 +231,6 @@ public class ContainerManagerImpl extends CompositeService implements
     ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     this.readLock = lock.readLock();
     this.writeLock = lock.writeLock();
-    //Change the delay to come from a config file
-    this.processorSharingMonitor = new ProcessorSharingMonitor(context,1000,100);
   }
 
   @Override
@@ -252,7 +253,13 @@ public class ContainerManagerImpl extends CompositeService implements
         conf.getLong(YarnConfiguration.NM_PROCESS_KILL_WAIT_MS,
             YarnConfiguration.DEFAULT_NM_PROCESS_KILL_WAIT_MS) +
         SHUTDOWN_CLEANUP_SLOP_MS;
-
+    //ProcessorSharing
+    processorSharingEnabled = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_ENABLE,YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_ENABLE);
+    if (processorSharingEnabled) {
+        processorSharingWindow = conf.getLong(YarnConfiguration.NM_PROCESSOR_SHARING_WINDOW_MS, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_WINDOW_MS);//default 5s
+        processorSharingFineGrainedInterval = conf.getInt(YarnConfiguration.NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS);//default 500ms
+        this.processorSharingMonitor = new ProcessorSharingMonitor(context,this.processorSharingWindow,processorSharingFineGrainedInterval);
+    }
     super.serviceInit(conf);
     recover();
   }
@@ -741,7 +748,9 @@ public class ContainerManagerImpl extends CompositeService implements
     	LOG.info("PAMELA startContainers starting container "+ containerId);
         startContainerInternal(nmTokenIdentifier, containerTokenIdentifier,
           request);
-        this.processorSharingMonitor.addContainer(containerId);
+        LOG.info("PAMELA is this container attemptId "+ containerId.getApplicationAttemptId()+" is an AM container? "+containerId.getContainerId()+ "==1?");
+        if(containerId.getContainerId() != 1)
+        	this.processorSharingMonitor.addContainer(containerId);
         succeededContainers.add(containerId);
       } catch (YarnException e) {
         failedContainers.put(containerId, SerializedException.newInstance(e));
@@ -1097,7 +1106,7 @@ public class ContainerManagerImpl extends CompositeService implements
   // ProcessorSharing
   private class ProcessorSharingMonitor extends Thread {
 	  Queue<ContainerId> processorSharingContainersList   = new LinkedList<ContainerId>();
-	  int delay;
+	  long delay;
       Container currentlyExecutingContainer;
       Context context;
       boolean running;
@@ -1105,7 +1114,7 @@ public class ContainerManagerImpl extends CompositeService implements
       int minimumCpu;
       int minimumMemory;
 	  
-	  public ProcessorSharingMonitor(Context context, int delay, int fineGrainedMonitorInterval) {
+	  public ProcessorSharingMonitor(Context context, long delay, int fineGrainedMonitorInterval) {
           LOG.info("PAMELA ProcessorSharingMonitor created");
 	      this.delay = delay;
           this.currentlyExecutingContainer = null;
@@ -1121,7 +1130,7 @@ public class ContainerManagerImpl extends CompositeService implements
 		 LOG.info("PAMELA ProcessorSharingMonitor started running!");
 	     while(running){
 			 // NOTE: only to make it work, sleep for shorter periods of time then verify if the container is done
-			 int leftProcessorSharingWindow = delay;
+			 long leftProcessorSharingWindow = delay;
 			 while(leftProcessorSharingWindow > 0 && running) {
 				 try {			    
 					synchronized(processorSharingContainersList){

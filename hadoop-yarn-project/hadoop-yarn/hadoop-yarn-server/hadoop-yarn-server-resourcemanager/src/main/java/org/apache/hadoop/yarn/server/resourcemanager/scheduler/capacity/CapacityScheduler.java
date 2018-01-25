@@ -396,17 +396,17 @@ public class CapacityScheduler extends
     int current = 0;
     Collection<FiCaSchedulerNode> nodes = cs.getAllNodes().values();
     int start = random.nextInt(nodes.size());
+	LOG.info("PAMELA scheduling starting node "+start+" note that the starting point is randomized.");  
     for (FiCaSchedulerNode node : nodes) {
       if (current++ >= start) {
-    	LOG.info("PAMELA scheduling in node "+node.getNodeID()+" note that the starting point is randomized.");  
         cs.allocateContainersToNode(node);
       }
     }
     // Now, just get everyone to be safe
     for (FiCaSchedulerNode node : nodes) {
-      LOG.info("PAMELA scheduling in node "+node.getNodeID()+" all included. Will sleep for "+cs.getAsyncScheduleInterval());  
       cs.allocateContainersToNode(node);
     }
+    LOG.info("PAMELA scheduled in all nodes. Will sleep for "+cs.getAsyncScheduleInterval());  
     try {
       Thread.sleep(cs.getAsyncScheduleInterval());
     } catch (InterruptedException e) {}

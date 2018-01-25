@@ -80,6 +80,13 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
   @Private
   public static final String MAXIMUM_APPLICATION_MASTERS_RESOURCE_PERCENT =
     PREFIX + MAXIMUM_AM_RESOURCE_SUFFIX;
+
+  @Private
+  public static final String MAXIMUM_CONTAINERS_PER_NODE =
+    PREFIX + "processorsharing.maximum-concurrent-containers-node";
+
+  @Private
+  public static final int DEFAULT_MAXIMUM_CONTAINERS_PER_NODE = 2;
   
   @Private
   public static final String QUEUES = "queues";
@@ -290,6 +297,10 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
     int maxApplications = 
       getInt(MAXIMUM_SYSTEM_APPLICATIONS, DEFAULT_MAXIMUM_SYSTEM_APPLICATIIONS);
     return maxApplications;
+  }
+  
+  public int getMaximumContainersPerNode() {
+	  return getInt(MAXIMUM_CONTAINERS_PER_NODE, DEFAULT_MAXIMUM_CONTAINERS_PER_NODE);
   }
   
   public int getMaxContainerOpportunityResumeption(String queue){

@@ -95,7 +95,7 @@ public class LeafQueue extends AbstractCSQueue {
   private float maxAMResourcePerQueuePercent;
 
   private int   maxContainerOpportunity;
-  
+  private int maxContainersPerNode;
   private int nodeLocalityDelay;
 
   Set<FiCaSchedulerApp> activeApplications;
@@ -183,7 +183,7 @@ public class LeafQueue extends AbstractCSQueue {
     testSuspendTime = conf.getTestSuspendTime("root");
     
     maxContainerOpportunity = conf.getMaxContainerOpportunityResumeption(getQueuePath());
-
+    maxContainersPerNode = conf.getMaximumContainersPerNode();
     maxApplications = conf.getMaximumApplicationsPerQueue(getQueuePath());
     if (maxApplications < 0) {
       int maxSystemApps = conf.getMaximumSystemApplications();
@@ -1665,8 +1665,8 @@ public class LeafQueue extends AbstractCSQueue {
 
     // Can we allocate a container on this node?
     //int availableContainers = resourceCalculator.computeAvailableContainers(available, capability);
-    int availableContainers = 2 - node.getRunningContainers().size();
-    LOG.info("PAMELA availableContainers would have been "+available.getMemory()/capability.getMemory()+ " instead we are saying it has " + availableContainers + ", numRunningContainers " + node.getRunningContainers().size());
+    int availableContainers = this.maxContainersPerNode - node.getRunningContainers().size();
+    LOG.info("PAMELA availableContainers would have been "+available.getMemory()/capability.getMemory()+ " instead we are saying it has " + availableContainers + " availableContainers, numRunningContainers " + node.getRunningContainers().size());
     
     boolean needToUnreserve = Resources.greaterThan(resourceCalculator,clusterResource,
         currentResoureLimits.getAmountNeededUnreserve(), Resources.none());

@@ -1167,6 +1167,29 @@ public class YarnConfiguration extends Configuration {
   public static final long DEFAULT_NM_SLEEP_DELAY_BEFORE_SIGKILL_MS =
       250;
 
+  // ******  PROCESSOR SHARING CONFIGS ******
+  
+  /** No. of milliseconds for ProcessorSharing Window */
+  public static final String NM_PROCESSOR_SHARING_ENABLE =
+      NM_PREFIX + "processorsharing.enable";
+  public static final boolean DEFAULT_NM_PROCESSOR_SHARING_ENABLE =
+      false;
+  
+  /** No. of milliseconds for ProcessorSharing Window */
+  public static final String NM_PROCESSOR_SHARING_WINDOW_MS =
+      NM_PREFIX + "processorsharing.window.ms";
+  public static final long DEFAULT_NM_PROCESSOR_SHARING_WINDOW_MS =
+      5000;
+  
+  /** No. of milliseconds for ProcessorSharing Window */
+  public static final String NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS =
+      NM_PREFIX + "processorsharing.finegrained-interval.ms";
+  public static final int DEFAULT_NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS =
+      500;
+
+  // ******  PROCESSOR SHARING CONFIGS ******
+  
+  
   /** Max time to wait for a process to come up when trying to cleanup
    * container resources */
   public static final String NM_PROCESS_KILL_WAIT_MS =
