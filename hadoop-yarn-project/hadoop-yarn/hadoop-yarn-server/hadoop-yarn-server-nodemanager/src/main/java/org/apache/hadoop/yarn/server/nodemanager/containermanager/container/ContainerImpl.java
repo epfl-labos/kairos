@@ -139,6 +139,8 @@ public class ContainerImpl implements Container {
       RecoveredContainerStatus.REQUESTED;
   // whether container was marked as killed after recovery
   private boolean recoveredAsKilled = false;
+  
+  protected boolean processorSharingEnabled;
 
   public ContainerImpl(Context context,Configuration conf, Dispatcher dispatcher,
       NMStateStoreService stateStore, ContainerLaunchContext launchContext,
@@ -161,7 +163,7 @@ public class ContainerImpl implements Container {
     this.writeLock = readWriteLock.writeLock();
     this.cpuCores  = cpuCores;
     this.context = context;
-
+    this.processorSharingEnabled = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_ENABLE, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_ENABLE);
     stateMachine = stateMachineFactory.make(this);
   }
 
@@ -818,7 +820,7 @@ public class ContainerImpl implements Container {
   
   
   /**
-   * TO launch thread to process contaienr udpate event
+   * TO launch thread to process container update event
    * @param nodeContainerUpdate
    */
   
@@ -827,7 +829,7 @@ public class ContainerImpl implements Container {
 	   
   Queue<Integer> memoryUpdateActorList   = new LinkedList<Integer>();
   Queue<Integer> quotaUpdateActorList    = new LinkedList<Integer>();
-  Queue<Set<Integer>> cpuUpdateActorList = new LinkedList<Set<Integer>>();
+  Queue<Set<Integer>> cpuUpdateActorList = new LinkedList<Set<Integer>>();  
 
   public DockerCommandThread(){
 	  
@@ -874,8 +876,8 @@ public class ContainerImpl implements Container {
 	  
   }
   
-  private void DockerCommandMeory(Integer memory){
-	  LOG.info("PAMELA DockerCommandMeory called with memory "+memory);
+  private void DockerCommandMemory(Integer memory){
+	  LOG.info("PAMELA DockerCommandMemory called with memory "+memory);
 	  List<String> commandPrefix = new ArrayList<String>();
 	  commandPrefix.add("docker");
 	  commandPrefix.add("update");
@@ -969,14 +971,16 @@ public void run(){
 	   if(memoryUpdateActorList.size() > 0){
 		   LOG.info("memory size "+memoryUpdateActorList.size());
 		   int memory = memoryUpdateActorList.poll();
-		   DockerCommandMeory(memory);
+		   DockerCommandMemory(memory);
 		   continue;
 	   }
 	 }
-	   //if we come here it means we need to sleep for 3s
-	  //LOG.info("PAMELA container thread going to sleep for 1 sec ");
 	  try {
+		  if (processorSharingEnabled)
 		    Thread.sleep(50);
+		  else
+		    Thread.sleep(3000);
+			  
 		} catch (InterruptedException e) {
 		    e.printStackTrace();
 		}
@@ -1043,7 +1047,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 	  }
 	  
 	  if(targetMemory < currentMemory){
-		  
+		  if(!processorSharingEnabled)
 		  while(currentMemory > targetMemory){
 			  
 			  if(currentMemory > 1024){  
@@ -1067,7 +1071,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
         if(memoryUpdateActorList.size() > 0){
 		    memoryUpdateActorList.clear();
 		 }
-        LOG.info("PAMELA node container update memory "+toAdded+" state is "+stateMachine.getCurrentState());
+        LOG.info("PAMELA node container "+ this.getId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
         memoryUpdateActorList.addAll(toAdded);
    } 
 }

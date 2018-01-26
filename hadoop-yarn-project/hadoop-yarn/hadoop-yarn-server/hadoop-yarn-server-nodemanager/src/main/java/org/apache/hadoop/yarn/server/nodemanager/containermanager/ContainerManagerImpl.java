@@ -258,7 +258,8 @@ public class ContainerManagerImpl extends CompositeService implements
     if (processorSharingEnabled) {
         processorSharingWindow = conf.getLong(YarnConfiguration.NM_PROCESSOR_SHARING_WINDOW_MS, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_WINDOW_MS);//default 5s
         processorSharingFineGrainedInterval = conf.getInt(YarnConfiguration.NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS);//default 500ms
-        this.processorSharingMonitor = new ProcessorSharingMonitor(context,this.processorSharingWindow,processorSharingFineGrainedInterval);
+        int minimumMemory = conf.getInt(YarnConfiguration.NM_PROCESSOR_SHARING_MINIMUM_MEMORY_MB, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_MINIMUM_MEMORY_MB);//default 128mb
+        this.processorSharingMonitor = new ProcessorSharingMonitor(context, this.processorSharingWindow, processorSharingFineGrainedInterval, minimumMemory);
     }
     super.serviceInit(conf);
     recover();
@@ -1114,7 +1115,7 @@ public class ContainerManagerImpl extends CompositeService implements
       int minimumCpu;
       int minimumMemory;
 	  
-	  public ProcessorSharingMonitor(Context context, long delay, int fineGrainedMonitorInterval) {
+	  public ProcessorSharingMonitor(Context context, long delay, int fineGrainedMonitorInterval, int minimumMemory) {
           LOG.info("PAMELA ProcessorSharingMonitor created");
 	      this.delay = delay;
           this.currentlyExecutingContainer = null;
@@ -1122,7 +1123,7 @@ public class ContainerManagerImpl extends CompositeService implements
           this.running = true;
           this.fineGrainedMonitorInterval = fineGrainedMonitorInterval;
           this.minimumCpu = 1;//0.001;
-          this.minimumMemory = 64;
+          this.minimumMemory = minimumMemory;
 	  }
 	  
 	  @Override
@@ -1181,20 +1182,19 @@ public class ContainerManagerImpl extends CompositeService implements
 			synchronized(processorSharingContainersList){
 			  LOG.info("PAMELA ProcessorSharingMonitor finished PS window. currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId());
 			  // If only one container in node, dont suspend it just let it run
-			  //if (processorSharingContainersList.size() > 0) {
+			  if (processorSharingContainersList.size() > 0) {
 			  if (currentlyExecutingContainer.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.RUNNING) {
 			      //XXX SUSPEND 
 				  LOG.info("PAMELA ProcessorSharingMonitor SUSPENDING currentlyExecutingContainer "+currentlyExecutingContainer.getContainerId()+" state "+ currentlyExecutingContainer.getContainerState()
-      					+" with resources "+currentlyExecutingContainer.getResource());
-			      NodeContainerUpdate nodeContainerUpdate= NodeContainerUpdate.newInstance(currentlyExecutingContainer.getContainerId(), 
-					      currentlyExecutingContainer.getResource().getMemory()-minimumMemory, currentlyExecutingContainer.getResource().getVirtualCores()-minimumCpu,true,false);
+      					+" to "+ minimumMemory);
+			      NodeContainerUpdate nodeContainerUpdate = NodeContainerUpdate.newInstance(currentlyExecutingContainer.getContainerId(), minimumMemory, minimumCpu,true,false);
 
 			      currentlyExecutingContainer.handle(new ContainerResourceUpdate(currentlyExecutingContainer.getContainerId(),nodeContainerUpdate));
 			      LOG.info("PAMELA ProcessorSharingMonitor Put back container "+currentlyExecutingContainer.getContainerId()+" to queue");
 			      processorSharingContainersList.add(currentlyExecutingContainer.getContainerId());
 			      currentlyExecutingContainer = null;
 			  }
-			  // }
+			  }
 			}
 	     }
 	  }

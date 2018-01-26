@@ -1186,6 +1186,11 @@ public class YarnConfiguration extends Configuration {
       NM_PREFIX + "processorsharing.finegrained-interval.ms";
   public static final int DEFAULT_NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS =
       500;
+  
+  /** Minimum amount of memory allowed for a suspended container in ProcessorSharing */
+  public static final String NM_PROCESSOR_SHARING_MINIMUM_MEMORY_MB =
+      NM_PREFIX + "processorsharing.minimum-memory.mb";
+  public static final int DEFAULT_NM_PROCESSOR_SHARING_MINIMUM_MEMORY_MB = 128;
 
   // ******  PROCESSOR SHARING CONFIGS ******
   
