@@ -73,7 +73,9 @@ public class ParentQueue extends AbstractCSQueue {
   final Comparator<CSQueue> queueComparator;
   volatile int numApplications;
   private final CapacitySchedulerContext scheduler;
-
+  private final boolean processorSharingEnabled;
+  private final int maxNumConcurrentContainers;
+  
   private final RecordFactory recordFactory = 
     RecordFactoryProvider.getRecordFactory(null);
 
@@ -86,7 +88,9 @@ public class ParentQueue extends AbstractCSQueue {
     this.rootQueue = (parent == null);
 
     float rawCapacity = cs.getConfiguration().getNonLabeledQueueCapacity(getQueuePath());
-
+    this.processorSharingEnabled = cs.getConfiguration().getProcessorSharingEnabled();
+    this.maxNumConcurrentContainers = cs.getConfiguration().getMaximumContainersPerNode();
+    		
     if (rootQueue &&
         (rawCapacity != CapacitySchedulerConfiguration.MAXIMUM_CAPACITY_VALUE)) {
       throw new IllegalArgumentException("Illegal " +
@@ -100,7 +104,7 @@ public class ParentQueue extends AbstractCSQueue {
 
     LOG.info("Initialized parent-queue " + queueName + 
         " name=" + queueName + 
-        ", fullname=" + getQueuePath()); 
+        ", fullname=" + getQueuePath()+" processorSharingEnabled "+processorSharingEnabled); 
   }
 
   synchronized void setupQueueConfigs(Resource clusterResource)
@@ -388,13 +392,13 @@ public class ParentQueue extends AbstractCSQueue {
       return assignment;
     }
     
-    //每次分配一个container 给node节点上的应用，直到不能非配为止
-    while (canAssign(clusterResource, node)) {
+    boolean assigned = false;
+    //每次分配一个container 给node节点上的应用，直到不能非配为止   
+    //         normal old way                                                  our way    assign only one container at a time if maxNumConcurrentContainers was not exceeded
+    while ((!processorSharingEnabled && canAssign(clusterResource, node)) || (processorSharingEnabled && !assigned && (maxNumConcurrentContainers - node.getNumContainers()>0))) {
+      LOG.info("PAMELA 2. will try to assign containers to node "+node.getNodeName());
       if (LOG.isDebugEnabled()) 
-      {
-        LOG.info("Trying to assign containers to child-queue of "
-          + getQueueName());
-      }
+        LOG.info("Trying to assign containers to child-queue of " + getQueueName());
       
       //LOG.info("cluster resource:"+clusterResource.getMemory()+"node:"+node.getNodeName()+"resource limits:"+resourceLimits.getLimit().getMemory());
       // Are we over maximum-capacity for this queue?
@@ -432,14 +436,15 @@ public class ParentQueue extends AbstractCSQueue {
         //we need to merge the resumed containers and accumulate the resource
         assignment.merge(assignedToChild);
         
-        LOG.info("assignedContainer" +
+        /*LOG.info("assignedContainer" +
             " queue=" + getQueueName() + 
             " usedCapacity=" + getUsedCapacity() +
             " absoluteUsedCapacity=" + getAbsoluteUsedCapacity() +
             " used=" + queueUsage.getUsed() + 
             " cluster=" + clusterResource+
-            " resume size="+assignment.getContainersToResume().size());
-
+            " resume size="+assignment.getContainersToResume().size());*/
+        assigned = true;
+        LOG.info("PAMELA assigned container to node " + node.getNodeName());
       } else {
         break;
       }
@@ -462,16 +467,15 @@ public class ParentQueue extends AbstractCSQueue {
         }
         break;
       }
+      LOG.info("PAMELA processorSharingEnabled " + processorSharingEnabled + " assigned? " + assigned + " should assign more? "+ ((!processorSharingEnabled && canAssign(clusterResource, node)) || (processorSharingEnabled && !assigned && (maxNumConcurrentContainers - node.getNumContainers()>0))));
      } 
     return assignment;
   }
 
   private boolean canAssign(Resource clusterResource, FiCaSchedulerNode node) {
-	LOG.info("PAMELA node "+node.getNodeID()+" available mem "+node.getAvailableResource().getMemory()+"> minimumAllocation "+ minimumAllocation.getMemory()+"? active containers "+node.getNumContainers());
-	return (node.getNumContainers()<2);
-    //return (node.getReservedContainer() == null) && 
-    //    Resources.greaterThanOrEqual(resourceCalculator, clusterResource, 
-     //       node.getAvailableResource(), minimumAllocation);
+    return (node.getReservedContainer() == null) && 
+        Resources.greaterThanOrEqual(resourceCalculator, clusterResource, 
+           node.getAvailableResource(), minimumAllocation);
   }
   
   private ResourceLimits getResourceLimitsOfChild(CSQueue child,
@@ -524,9 +528,8 @@ public class ParentQueue extends AbstractCSQueue {
       // Get ResourceLimits of child queue before assign containers
       ResourceLimits childLimits =
           getResourceLimitsOfChild(childQueue, cluster, limits);
-      
+      LOG.info("PAMELA 3 calling childqueue assignContainers node "+node.getNodeName());
       assignment = childQueue.assignContainers(cluster, node, childLimits);
-      LOG.info("PAMELA assigned to childQueue "+assignment.getResource());
      if(LOG.isDebugEnabled())
       {
         LOG.info("Assigned to queue: " + childQueue.getQueuePath() +
@@ -542,7 +545,8 @@ public class ParentQueue extends AbstractCSQueue {
         iter.remove();
         LOG.info("Re-sorting assigned queue: " + childQueue.getQueuePath() + 
             " stats: " + childQueue);
-        childQueues.add(childQueue);
+        LOG.info("PAMELA 3 finished childQueue for node "+node.getNodeName());
+       	childQueues.add(childQueue);
         if (LOG.isDebugEnabled()) {
           printChildQueues();
         }

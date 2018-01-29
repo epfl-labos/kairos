@@ -96,6 +96,7 @@ public class LeafQueue extends AbstractCSQueue {
 
   private int   maxContainerOpportunity;
   private int maxContainersPerNode;
+  private boolean processorSharingEnabled;
   private int nodeLocalityDelay;
 
   Set<FiCaSchedulerApp> activeApplications;
@@ -184,6 +185,7 @@ public class LeafQueue extends AbstractCSQueue {
     
     maxContainerOpportunity = conf.getMaxContainerOpportunityResumeption(getQueuePath());
     maxContainersPerNode = conf.getMaximumContainersPerNode();
+    processorSharingEnabled = conf.getProcessorSharingEnabled();
     maxApplications = conf.getMaximumApplicationsPerQueue(getQueuePath());
     if (maxApplications < 0) {
       int maxSystemApps = conf.getMaximumSystemApplications();
@@ -775,11 +777,11 @@ public class LeafQueue extends AbstractCSQueue {
   public synchronized CSAssignment assignContainers(Resource clusterResource,
       FiCaSchedulerNode node, ResourceLimits currentResourceLimits) {
     updateCurrentResourceLimits(currentResourceLimits, clusterResource);
+    LOG.info("PAMELA 4 assignContainers node "+node.getNodeName());
     
-    //if(LOG.isDebugEnabled()) {
-      LOG.info("assignContainers: node=" + node.getNodeName()
-        + " #applications=" + activeApplications.size());
-    //}
+    if(LOG.isDebugEnabled()) {
+      LOG.info("assignContainers: node=" + node.getNodeName() + " #applications=" + activeApplications.size());
+    }
     
     // if our queue cannot access this node, just return
     if (!SchedulerUtils.checkQueueAccessToNode(accessibleLabels,
@@ -790,6 +792,7 @@ public class LeafQueue extends AbstractCSQueue {
     // Check for reserved resources
     RMContainer reservedContainer = node.getReservedContainer();
     if (reservedContainer != null) {
+        LOG.info("PAMELA reservedContainer != null SHOULD NOT COME HERE");
       FiCaSchedulerApp application = 
           getApplication(reservedContainer.getApplicationAttemptId());
       synchronized (application) {
@@ -800,6 +803,7 @@ public class LeafQueue extends AbstractCSQueue {
     
     //try to resume containers which are suspended in fifo order
     for(ApplicationAttemptId appId: this.suspendedApps){
+        LOG.info("PAMELA for suspendedApps "+appId+ " SHOULD NOT COME HERE");
     	FiCaSchedulerApp app = this.applicationAttemptMap.get(appId);
     	LOG.info("get app suspended "+app.getApplicationAttemptId()+" suspended size "+app.getContainersSuspended().size());
     	synchronized(app){
@@ -880,13 +884,13 @@ public class LeafQueue extends AbstractCSQueue {
     // Try to assign containers to applications in order。这是核心的分配算法
     for (FiCaSchedulerApp application : activeApplications) {
       
-      //if(LOG.isDebugEnabled()) {
-        LOG.info("pre-assignContainers for application "
-        + application.getApplicationId());
+      if(LOG.isDebugEnabled()) {
+        LOG.info("pre-assignContainers for application " + application.getApplicationId());
         application.showRequests();
-      //}
+      }
 
       synchronized (application) {
+        LOG.info("PAMELA for activeApplications application "+application.getApplicationAttemptId());
         // Check if this resource is on the blacklist
         if (SchedulerAppUtils.isBlacklisted(application, node, LOG)) {
           continue;
@@ -946,11 +950,10 @@ public class LeafQueue extends AbstractCSQueue {
           application.addSchedulingOpportunity(priority);
           
           // Try to schedule
+          LOG.info("PAMELA going to call assignContainersOnNode "+node.getNodeName()+" application "+application.getApplicationAttemptId()+" priority "+priority);
           CSAssignment assignment =  
-            assignContainersOnNode(clusterResource, node, application, priority, 
-                null, currentResourceLimits);
-          LOG.info("PAMELA application "+application.getApplicationId()+" got assignment on node "+node.getNodeName()+" resource assigned "+assignment.getResource());
-          
+            assignContainersOnNode(clusterResource, node, application, priority, null, currentResourceLimits);
+                  
           // Did the application skip this node?
           if (assignment.getSkipped()) {
             // Don't count 'skipped nodes' as a scheduling opportunity!
@@ -962,6 +965,8 @@ public class LeafQueue extends AbstractCSQueue {
           Resource assigned = assignment.getResource();
           if (Resources.greaterThan(
               resourceCalculator, clusterResource, assigned, Resources.none())) {
+        	  
+            LOG.info("PAMELA application "+application.getApplicationId()+" got assignment on node "+node.getNodeName()+" resource assigned "+assignment.getResource());
 
             // Book-keeping 
             // Note: Update headroom to account for current allocation too...
@@ -978,6 +983,7 @@ public class LeafQueue extends AbstractCSQueue {
               application.resetSchedulingOpportunities(priority);
             }
             
+            LOG.info("PAMELA 4 finish assigned containers on node "+node.getNodeName());
             // Done
             return assignment;
           } else {
@@ -1009,6 +1015,7 @@ public class LeafQueue extends AbstractCSQueue {
       return new CSAssignment(application, rmContainer);
     }
 
+    LOG.info("PAMELA assignReservedContainer going to assign a container on node "+node.getNodeName()+" for application "+application.getApplicationAttemptId());
     // Try to assign if we have sufficient resources
     assignContainersOnNode(clusterResource, node, application, priority, 
         rmContainer, new ResourceLimits(Resources.none()));
@@ -1304,7 +1311,7 @@ public class LeafQueue extends AbstractCSQueue {
             allocatedContainer, currentResoureLimits);
       if (Resources.greaterThan(resourceCalculator, clusterResource,
           assigned, Resources.none())) {
-
+        LOG.info("PAMELA assigned container NODE_LOCAL "+node.getNodeName());
         //update locality statistics
         if (allocatedContainer.getValue() != null) {
           application.incNumAllocatedContainers(NodeType.NODE_LOCAL,
@@ -1332,6 +1339,7 @@ public class LeafQueue extends AbstractCSQueue {
             allocatedContainer, currentResoureLimits);
       if (Resources.greaterThan(resourceCalculator, clusterResource,
           assigned, Resources.none())) {
+        LOG.info("PAMELA assigned container RACK_LOCAL "+node.getNodeName());
 
         //update locality statistics
         if (allocatedContainer.getValue() != null) {
@@ -1358,6 +1366,7 @@ public class LeafQueue extends AbstractCSQueue {
           assignOffSwitchContainers(clusterResource, offSwitchResourceRequest,
             node, application, priority, reservedContainer,
             allocatedContainer, currentResoureLimits);
+      LOG.info("PAMELA assigned container OFF_SWITCH "+node.getNodeName());
 
       // update locality statistics
       if (allocatedContainer.getValue() != null) {
@@ -1460,7 +1469,9 @@ public class LeafQueue extends AbstractCSQueue {
 
   boolean canAssign(FiCaSchedulerApp application, Priority priority, 
       FiCaSchedulerNode node, NodeType type, RMContainer reservedContainer) {
-
+    if(this.processorSharingEnabled)
+    	return true;
+    
     // Clearly we need containers for this application...
     if (type == NodeType.OFF_SWITCH) {
       if (reservedContainer != null) {
@@ -1665,9 +1676,10 @@ public class LeafQueue extends AbstractCSQueue {
 
     // Can we allocate a container on this node?
     int availableContainers = resourceCalculator.computeAvailableContainers(available, capability);
-    if (this.maxContainersPerNode > 1)
+    if (processorSharingEnabled) {
         availableContainers = this.maxContainersPerNode - node.getRunningContainers().size();
-    LOG.info("PAMELA availableContainers would have been "+available.getMemory()/capability.getMemory()+ " instead we are saying it has " + availableContainers + " availableContainers, numRunningContainers " + node.getRunningContainers().size());
+        LOG.info("PAMELA availableContainers would have been "+available.getMemory()/capability.getMemory()+ " instead we are saying it has " + availableContainers + " availableContainers, numRunningContainers " + node.getRunningContainers().size());
+    }
     
     boolean needToUnreserve = Resources.greaterThan(resourceCalculator,clusterResource,
         currentResoureLimits.getAmountNeededUnreserve(), Resources.none());
@@ -1718,6 +1730,7 @@ public class LeafQueue extends AbstractCSQueue {
 
       // Inform the node
       node.allocateContainer(allocatedContainer);
+      LOG.info("PAMELA assigned container "+container.getId()+" to node "+node.getNodeID()+" resources assigned "+container.getResource());
 
       LOG.info("assignedContainer" +
           " application attempt=" + application.getApplicationAttemptId() +
@@ -1877,14 +1890,14 @@ public class LeafQueue extends AbstractCSQueue {
     Resources.subtractFrom(application.getHeadroom(), resource); // headroom
     metrics.setAvailableResourcesToUser(userName, application.getHeadroom());
     }
-    //if (LOG.isDebugEnabled()) {
+    if (LOG.isDebugEnabled()) {
       LOG.info(getQueueName() + 
           " used=" + queueUsage.getUsed() + " numContainers=" + numContainers +
           " headroom = " + application.getHeadroom() +
           " user-resources=" + user.getUsed()+"allocate resource:"+resource+
           " absUsed= "+getAbsoluteUsedCapacity()
           );
-  //  }
+    }
   }
 
   synchronized void releaseResource(Resource clusterResource, 

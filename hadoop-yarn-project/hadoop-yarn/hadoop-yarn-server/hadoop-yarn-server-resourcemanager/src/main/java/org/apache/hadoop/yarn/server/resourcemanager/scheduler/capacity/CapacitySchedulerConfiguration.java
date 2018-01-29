@@ -87,6 +87,13 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
 
   @Private
   public static final int DEFAULT_MAXIMUM_CONTAINERS_PER_NODE = 1;
+
+  @Private
+  public static final String PROCESSOR_SHARING_ENABLE =
+    PREFIX + "processorsharing.enable";
+
+  @Private
+  public static final boolean DEFAULT_PROCESSOR_SHARING_ENABLE = false;
   
   @Private
   public static final String QUEUES = "queues";
@@ -301,6 +308,10 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
   
   public int getMaximumContainersPerNode() {
 	  return getInt(MAXIMUM_CONTAINERS_PER_NODE, DEFAULT_MAXIMUM_CONTAINERS_PER_NODE);
+  }
+  
+  public boolean getProcessorSharingEnabled() {
+	  return getBoolean(PROCESSOR_SHARING_ENABLE, DEFAULT_PROCESSOR_SHARING_ENABLE);	  
   }
   
   public int getMaxContainerOpportunityResumeption(String queue){

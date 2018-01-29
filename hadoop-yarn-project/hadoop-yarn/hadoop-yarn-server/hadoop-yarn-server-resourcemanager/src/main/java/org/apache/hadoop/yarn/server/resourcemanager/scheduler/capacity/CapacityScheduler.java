@@ -303,6 +303,7 @@ public class CapacityScheduler extends
     validateConf(this.conf);
     this.minimumAllocation = this.conf.getMinimumAllocation();
     initMaximumResourceCapability(this.conf.getMaximumAllocation());
+
     this.calculator = this.conf.getResourceCalculator();
     this.usePortForNodeName = this.conf.getUsePortForNodeName();
     
@@ -396,17 +397,16 @@ public class CapacityScheduler extends
     int current = 0;
     Collection<FiCaSchedulerNode> nodes = cs.getAllNodes().values();
     int start = random.nextInt(nodes.size());
-	LOG.info("PAMELA scheduling starting node "+start+" note that the starting point is randomized.");  
-    for (FiCaSchedulerNode node : nodes) {
+    /*for (FiCaSchedulerNode node : nodes) {
       if (current++ >= start) {
         cs.allocateContainersToNode(node);
       }
-    }
+    }*/
+	LOG.info("PAMELA scheduling in ALL nodes IN ORDER. Only one round!?");  
     // Now, just get everyone to be safe
     for (FiCaSchedulerNode node : nodes) {
       cs.allocateContainersToNode(node);
     }
-    LOG.info("PAMELA scheduled in all nodes. Will sleep for "+cs.getAsyncScheduleInterval());  
     try {
       Thread.sleep(cs.getAsyncScheduleInterval());
     } catch (InterruptedException e) {}
@@ -1070,6 +1070,9 @@ public class CapacityScheduler extends
   }
 
   private synchronized void allocateContainersToNode(FiCaSchedulerNode node) {
+    int maxContainersPerNode = this.conf.getMaximumContainersPerNode();
+    boolean processorSharingEnabled = this.conf.getProcessorSharingEnabled();
+    
     if (rmContext.isWorkPreservingRecoveryEnabled()
         && !rmContext.isSchedulerReadyForAllocatingContainers()) {
       return;
@@ -1081,6 +1084,7 @@ public class CapacityScheduler extends
 
     RMContainer reservedContainer = node.getReservedContainer();
     if (reservedContainer != null) {
+      LOG.info("PAMELA there are reserved containers in this node "+node.getNodeName());	
       FiCaSchedulerApp reservedApplication =
           getCurrentAttemptForContainer(reservedContainer.getContainerId());
       
@@ -1115,14 +1119,13 @@ public class CapacityScheduler extends
 
     // Try to schedule more if there are no reservations to fulfill
     if (node.getReservedContainer() == null) {
-      if (calculator.computeAvailableContainers(node.getAvailableResource(),
-        minimumAllocation) > 0) {
-        //if (LOG.isDebugEnabled())
+ 	
+      if ((processorSharingEnabled && (maxContainersPerNode - node.getNumContainers()) > 0) || (!processorSharingEnabled && calculator.computeAvailableContainers(node.getAvailableResource(), minimumAllocation) > 0)) {
+        if (processorSharingEnabled)
     	{
-          LOG.info("Trying to schedule on node: " + node.getNodeName() +
-              ", available: " + node.getAvailableResource());
+          LOG.info("PAMELA 1 Trying to schedule on node: " + node.getNodeName() +", available: " + node.getAvailableResource()+ ", number of containers: "+node.getNumContainers());
         }
-        CSAssignment assignment =root.assignContainers(
+        CSAssignment assignment = root.assignContainers(
             clusterResource,
             node,
             // TODO, now we only consider limits for parent for non-labeled
