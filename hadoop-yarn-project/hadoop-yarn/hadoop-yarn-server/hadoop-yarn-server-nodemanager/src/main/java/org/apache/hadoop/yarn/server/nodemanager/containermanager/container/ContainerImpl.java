@@ -994,7 +994,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 	  //if this is a resumed container
 	  boolean resumed = nodeContainerUpdate.getResume();
 	  boolean quotaFreeze = false;
-	  //we fisrt update cpu cores
+	  //we first update cpu cores
 	  Integer targetCores = nodeContainerUpdate.getCores();
 	  //then we update resource requirement, first we update cpu set
 	  Set<Integer> cores = context.getCoresManager().resetCores(containerId,targetCores);
@@ -1073,7 +1073,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 		 }
         LOG.info("PAMELA node container "+ this.getId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
         memoryUpdateActorList.addAll(toAdded);
-   } 
+   }
 }
 
   }

@@ -1187,11 +1187,17 @@ public class YarnConfiguration extends Configuration {
   public static final int DEFAULT_NM_PROCESSOR_SHARING_FINEGRAINED_INTERVAL_MS =
       500;
   
-  /** Minimum amount of memory allowed for a suspended container in ProcessorSharing */
+  /** Minimum amount of cpu allowed for a suspended container in ProcessorSharing */
   public static final String NM_PROCESSOR_SHARING_MINIMUM_MEMORY_MB =
       NM_PREFIX + "processorsharing.minimum-memory.mb";
   public static final int DEFAULT_NM_PROCESSOR_SHARING_MINIMUM_MEMORY_MB = 128;
 
+  /** Minimum amount of memory allowed for a suspended container in ProcessorSharing */
+  public static final String NM_PROCESSOR_SHARING_MINIMUM_CPU =
+      NM_PREFIX + "processorsharing.minimum-cpu";
+  public static final int DEFAULT_NM_PROCESSOR_SHARING_MINIMUM_CPU = 1;
+    
+  
   // ******  PROCESSOR SHARING CONFIGS ******
   
   
