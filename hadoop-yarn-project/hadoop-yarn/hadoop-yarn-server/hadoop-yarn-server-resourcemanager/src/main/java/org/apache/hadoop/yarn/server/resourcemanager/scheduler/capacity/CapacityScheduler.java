@@ -436,7 +436,7 @@ public class CapacityScheduler extends
   }
   
   //Comparator anonymous class implementation
-	public static Comparator<FiCaSchedulerNode> activeContainersAgeComparator = new Comparator<FiCaSchedulerNode>(){	
+	private static Comparator<FiCaSchedulerNode> activeContainersAgeComparator = new Comparator<FiCaSchedulerNode>(){	
 		@Override
 		public int compare(FiCaSchedulerNode node1, FiCaSchedulerNode node2) {
             return node1.getNumContainers() - node2.getNumContainers(); //TODO add age
