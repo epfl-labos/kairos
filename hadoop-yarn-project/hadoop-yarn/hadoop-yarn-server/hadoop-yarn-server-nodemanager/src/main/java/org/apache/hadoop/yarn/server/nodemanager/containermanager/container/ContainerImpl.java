@@ -995,7 +995,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 	  boolean resumed = nodeContainerUpdate.getResume();
 	  boolean quotaFreeze = false;
 	  //we first update cpu cores
-	  Integer targetCores = Math.ceil(nodeContainerUpdate.getCores());
+	  Integer targetCores = (int) Math.ceil(nodeContainerUpdate.getCores());
 	  //then we update resource requirement, first we update cpu set
 	  Set<Integer> cores = context.getCoresManager().resetCores(containerId,targetCores);
 	  
