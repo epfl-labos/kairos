@@ -498,7 +498,9 @@ public class ContainerManagerImpl extends CompositeService implements
             + nodeId + "' but found '" + serverNode + "'");
       }
     }
-    this.processorSharingMonitor.start();
+    
+    if(this.processorSharingEnabled)
+        this.processorSharingMonitor.start();
 
     LOG.info("ContainerManager started at " + connectAddress);
     LOG.info("ContainerManager bound to " + initialAddress);
@@ -747,11 +749,11 @@ public class ContainerManagerImpl extends CompositeService implements
         verifyAndGetContainerTokenIdentifier(request.getContainerToken(),
           containerTokenIdentifier);
         containerId = containerTokenIdentifier.getContainerID();
-    	LOG.info("PAMELA startContainers starting container "+ containerId);
+    	//LOG.info("PAMELA startContainers starting container "+ containerId);
         startContainerInternal(nmTokenIdentifier, containerTokenIdentifier,
           request);
         LOG.info("PAMELA is this container attemptId "+ containerId.getApplicationAttemptId()+" is an AM container? "+containerId.getContainerId()+ "==1?");
-        if(containerId.getContainerId() != 1)
+        if(containerId.getContainerId() != 1 && this.processorSharingEnabled)
         	this.processorSharingMonitor.addContainer(containerId);
         succeededContainers.add(containerId);
       } catch (YarnException e) {
