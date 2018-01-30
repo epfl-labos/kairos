@@ -1197,6 +1197,11 @@ public class YarnConfiguration extends Configuration {
       NM_PREFIX + "processorsharing.minimum-cpu";
   public static final int DEFAULT_NM_PROCESSOR_SHARING_MINIMUM_CPU = 1;
     
+
+  /** Maximum amount of concurrent containers per node in ProcessorSharing */
+  public static final String NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS =
+      NM_PREFIX + "processorsharing.maximum-concurrent-containers";
+  public static final int DEFAULT_NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS = 4;
   
   // ******  PROCESSOR SHARING CONFIGS ******
   
