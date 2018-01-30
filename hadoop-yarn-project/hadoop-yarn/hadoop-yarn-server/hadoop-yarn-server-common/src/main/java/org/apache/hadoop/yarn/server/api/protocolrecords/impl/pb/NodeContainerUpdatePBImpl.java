@@ -94,14 +94,14 @@ public class NodeContainerUpdatePBImpl extends  NodeContainerUpdate{
 	}
 
 	@Override
-	public void setCores(int cores) {
+	public void setCores(double cores) {
 		maybeInitBuilder();
 		builder.setCpuCores(cores);
 		
 	}
 
 	@Override
-	public int getCores() {
+	public double getCores() {
 		NodeContainerUpdateProtoOrBuilder p = viaProto ? proto : builder;
 		return p.getCpuCores();
 	}

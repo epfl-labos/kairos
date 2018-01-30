@@ -7,7 +7,7 @@ import org.apache.hadoop.yarn.util.Records;
 
 public abstract class NodeContainerUpdate {
 	
-	public static NodeContainerUpdate newInstance(ContainerId containerId, int memory,int cores,boolean suspend, boolean resume){
+	public static NodeContainerUpdate newInstance(ContainerId containerId, int memory, double cores, boolean suspend, boolean resume){
 		NodeContainerUpdate nodeContainerUpdate =
 		        Records.newRecord(NodeContainerUpdate.class);
 		nodeContainerUpdate.setContianerId(containerId);
@@ -24,8 +24,8 @@ public abstract class NodeContainerUpdate {
 	public abstract void setMemory(int memory);
 	public abstract int getMemory();
 	
-	public abstract void setCores(int cores);
-	public abstract int getCores();
+	public abstract void setCores(double cores);
+	public abstract double getCores();
 	
 	public abstract void setSuspend(boolean suspend);
 	public abstract boolean getSuspend();
