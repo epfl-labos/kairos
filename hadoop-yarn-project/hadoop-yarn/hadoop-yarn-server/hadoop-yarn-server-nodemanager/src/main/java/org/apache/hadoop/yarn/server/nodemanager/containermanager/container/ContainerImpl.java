@@ -830,6 +830,7 @@ public class ContainerImpl implements Container {
   Queue<Integer> memoryUpdateActorList   = new LinkedList<Integer>();
   Queue<Integer> quotaUpdateActorList    = new LinkedList<Integer>();
   Queue<Set<Integer>> cpuUpdateActorList = new LinkedList<Set<Integer>>();  
+  Queue<Double> cpuFractionUpdateActorList = new LinkedList<Double>();  
 
   public DockerCommandThread(){
 	  
@@ -850,7 +851,7 @@ public class ContainerImpl implements Container {
 	  
   }
   
-  private void DockerCommandCpuSet(Set<Integer> cores){
+  private void DockerCommandCpuSet(Set<Integer> cores, Double coresFraction){
 	  List<String> commandPrefix = new ArrayList<String>();
 	  commandPrefix.add("docker");
 	  commandPrefix.add("update");
@@ -869,8 +870,13 @@ public class ContainerImpl implements Container {
 	  }
 	  
 	  commandCores.add(coresStr);
-	  commandCores.add(containerId.toString());
-	  String[] commandArrayCores = commandCores.toArray(new String[commandCores.size()]);
+	  if(coresFraction != null) {
+	      commandCores.add("--cpus");
+	      commandCores.add(coresFraction.toString());
+	  }
+	  commandCores.add(containerId.toString());  
+	  
+	  String[] commandArrayCores = commandCores.toArray(new String[commandCores.size()]);	  
 	  this.runDockerUpdateCommand(commandArrayCores);
 	  
 	  
@@ -959,10 +965,14 @@ public void run(){
 	  synchronized(cpuUpdateActorList){
 	   //then update cpuset
 	   if(cpuUpdateActorList.size( )> 0){
-		   LOG.info("cpu size "+cpuUpdateActorList.size());
-		   Set<Integer> cpuSet = cpuUpdateActorList.poll();
-		   DockerCommandCpuSet(cpuSet);
-		   continue;
+		   synchronized(cpuFractionUpdateActorList) {
+			   LOG.info("cpu size "+cpuUpdateActorList.size());
+			   Set<Integer> cpuSet = cpuUpdateActorList.poll();
+			   Double cpuFraction = cpuFractionUpdateActorList.poll();
+			   LOG.info("PAMELA container "+ getContainerId() +" cpuSet " + cpuSet + " size "+cpuSet.size()+" >= cpu fraction " + cpuFraction + " ? " + (cpuSet.size()>=cpuFraction));
+			   DockerCommandCpuSet(cpuSet, cpuFraction);
+			   continue;
+		   }
 	    }
 	  }
 	  
@@ -1014,6 +1024,14 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 			  cpuUpdateActorList.clear();
 		    }
 		   cpuUpdateActorList.add(cores);
+			// ProcessorSharing, we need to use a fraction of the CPU
+		   synchronized(cpuFractionUpdateActorList){
+			   LOG.info("PAMELA container "+containerId+" adding fraction of cores to be "+nodeContainerUpdate.getCores());
+			   if(cpuFractionUpdateActorList.size( )> 0){
+				   cpuFractionUpdateActorList.clear();
+			   }
+			   cpuFractionUpdateActorList.add(nodeContainerUpdate.getCores());
+		   }
 	   }
 	  
 	  //we then update cpuset, we only free container when all the resource has been deprived
@@ -1035,7 +1053,6 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 	      }
 	  }
 	  
-	 
 	  //we then update memory usage
 	  List<Integer> toAdded = new ArrayList<Integer>();
 	  Integer currentMemory = currentResource.getMemory();
@@ -1071,15 +1088,14 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
         if(memoryUpdateActorList.size() > 0){
 		    memoryUpdateActorList.clear();
 		 }
-        LOG.info("PAMELA node container "+ this.getId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
+        LOG.info("PAMELA container "+ getContainerId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
         memoryUpdateActorList.addAll(toAdded);
    }
 }
 
   }
   private void ProcessResourceUpdate(NodeContainerUpdate nodeContainerUpdate){
-	  LOG.info("process resource update: container  "+getContainerId()+" cores "+nodeContainerUpdate.getCores()
-			  +" memory "+nodeContainerUpdate.getMemory());
+	  LOG.info("process resource update: container  "+getContainerId()+" cores "+nodeContainerUpdate.getCores()+" memory "+nodeContainerUpdate.getMemory());
 	  dockerUpdateThread.ProcessNodeContainerUpdate(nodeContainerUpdate);;
   }
   
