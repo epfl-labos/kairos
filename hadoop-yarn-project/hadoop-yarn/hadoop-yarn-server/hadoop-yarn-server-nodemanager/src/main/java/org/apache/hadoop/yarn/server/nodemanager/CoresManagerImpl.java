@@ -21,6 +21,8 @@ public class CoresManagerImpl implements CoresManager {
 	
 	private Set<Integer> unUsedCores = new HashSet<Integer>();
 	
+	private Set<Integer> suspendedCores = new HashSet<Integer>();
+	
 	//should be initialized at start
 	private Map<Integer,Set<ContainerId>> coresToContainer = new HashMap<Integer,Set<ContainerId>>();
     
@@ -176,16 +178,17 @@ public class CoresManagerImpl implements CoresManager {
 			}
 			returnedCores.add(value);
 		}
+		//PAMELA TODO TEST!! If there are no cores to be removed (using a percentage of them = suspending) release the same
 		//remove cores to container mapping
-		Set<Integer> toRemoved=new HashSet<Integer>();
+		/*Set<Integer> toRemoved=new HashSet<Integer>();
 		for(Integer core : cores){
 			if(returnedCores.contains(core)){
 				continue;
 			}
 			toRemoved.add(core);
-		}
-		
-		this.releaseCoresforContainer(cntId, toRemoved);
+		}*/
+		LOG.info("PAMELA SUSPENSION? going to release cores "+cores+" on container "+cntId);
+		this.releaseCoresforContainer(cntId, cores);//toRemoved);
 					
 	//for num >= cores.size(), we need to give more cores to this container
 	}else{

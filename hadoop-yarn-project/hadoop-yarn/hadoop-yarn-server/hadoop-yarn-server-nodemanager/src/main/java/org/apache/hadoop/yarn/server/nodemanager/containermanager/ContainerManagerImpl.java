@@ -877,7 +877,7 @@ public class ContainerManagerImpl extends CompositeService implements
         new ContainerImpl(this.context,getConfig(), this.dispatcher,
             context.getNMStateStore(), launchContext,
           credentials, metrics, containerTokenIdentifier,cores);
-    LOG.info("allocate cpuset"+cores+" for containers "+container.getContainerId());
+    LOG.info("allocate cpuset "+cores+" for containers "+container.getContainerId());
     
     ApplicationId applicationID =
         containerId.getApplicationAttemptId().getApplicationId();
