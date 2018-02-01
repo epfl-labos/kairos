@@ -848,7 +848,6 @@ public class ContainerImpl implements Container {
 	  commandQuota.add(containerId.toString());
 	  String[] commandArrayQuota = commandQuota.toArray(new String[commandQuota.size()]);
 	  this.runDockerUpdateCommand(commandArrayQuota);
-	  
   }
   
   private void DockerCommandCpuSet(Set<Integer> cores, Double coresFraction){
@@ -878,12 +877,9 @@ public class ContainerImpl implements Container {
 	  
 	  String[] commandArrayCores = commandCores.toArray(new String[commandCores.size()]);	  
 	  this.runDockerUpdateCommand(commandArrayCores);
-	  
-	  
   }
   
   private void DockerCommandMemory(Integer memory){
-	  LOG.info("PAMELA DockerCommandMemory called with memory "+memory);
 	  List<String> commandPrefix = new ArrayList<String>();
 	  commandPrefix.add("docker");
 	  commandPrefix.add("update");
@@ -894,8 +890,6 @@ public class ContainerImpl implements Container {
 	  commandMemory.add(containerId.toString());
 	  String[] commandArrayMemory = commandMemory.toArray(new String[commandMemory.size()]);
 	  this.runDockerUpdateCommand(commandArrayMemory);
-	  
-	  
    }
   
   private int runDockerUpdateCommand(String[] command){
@@ -931,14 +925,12 @@ public class ContainerImpl implements Container {
 	        shExec.close();
 	      }
 	    }
-        LOG.info("command execution successfully");
+        LOG.info("command execution successfully, commands "+commandString);
         break; 
 	 }
 	 if(count > 0){
-		 
 		  LOG.info("command execution successfully and commands updates for"+count+" times");
 	 }else{
-		 
 		  LOG.info("command execution fails");
 	 }
 	 return 0;
@@ -955,9 +947,10 @@ public void run(){
 	  synchronized(quotaUpdateActorList){	
 	   //first check the quota list if it is empty
 	   if(quotaUpdateActorList.size() > 0){  
-		   LOG.info("quota size "+quotaUpdateActorList.size());
 		   int quota = quotaUpdateActorList.poll();
+		   LOG.info("UPDATE START container "+getContainerId()+" quota "+quota);
 		   DockerCommandCpuQuota(quota);
+		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota);
 		   continue;
 	    }
 	  }
@@ -970,7 +963,9 @@ public void run(){
 			   Set<Integer> cpuSet = cpuUpdateActorList.poll();
 			   Double cpuFraction = cpuFractionUpdateActorList.poll();
 			   LOG.info("PAMELA container "+ getContainerId() +" cpuSet " + cpuSet + " size "+cpuSet.size()+" >= cpu fraction " + cpuFraction + " ? " + (cpuSet.size()>=cpuFraction));
+			   LOG.info("UPDATE START container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.size());
 			   DockerCommandCpuSet(cpuSet, cpuFraction);
+			   LOG.info("UPDATE END container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.size());
 			   continue;
 		   }
 	    }
@@ -981,7 +976,9 @@ public void run(){
 	   if(memoryUpdateActorList.size() > 0){
 		   LOG.info("memory size "+memoryUpdateActorList.size());
 		   int memory = memoryUpdateActorList.poll();
+		   LOG.info("UPDATE START container "+getContainerId()+" memory "+memory);
 		   DockerCommandMemory(memory);
+		   LOG.info("UPDATE END container "+getContainerId()+" memory "+memory);
 		   continue;
 	   }
 	 }

@@ -591,7 +591,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
             NodeHeartbeatResponse response = null;
             NodeStatus nodeStatus = getNodeStatus(lastHeartBeatID);
             
-            LOG.info("PAMELA heartbeat nodeStatus OldestYoungestAge "+nodeStatus.getOldestYoungestAge());
+            //LOG.info("PAMELA heartbeat nodeStatus OldestYoungestAge "+nodeStatus.getOldestYoungestAge());
             NodeHeartbeatRequest request =
                 NodeHeartbeatRequest.newInstance(nodeStatus,
                   NodeStatusUpdaterImpl.this.context

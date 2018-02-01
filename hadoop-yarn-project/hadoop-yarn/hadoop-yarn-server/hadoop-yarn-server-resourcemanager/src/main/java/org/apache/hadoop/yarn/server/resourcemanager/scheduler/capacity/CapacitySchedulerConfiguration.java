@@ -309,6 +309,10 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
   public int getMaximumContainersPerNode() {
 	  return getInt(MAXIMUM_CONTAINERS_PER_NODE, DEFAULT_MAXIMUM_CONTAINERS_PER_NODE);
   }
+
+  public int getLoadBalancingAlgorithm() {
+	  return getInt(MAXIMUM_CONTAINERS_PER_NODE, DEFAULT_MAXIMUM_CONTAINERS_PER_NODE);
+  }
   
   public boolean getProcessorSharingEnabled() {
 	  return getBoolean(PROCESSOR_SHARING_ENABLE, DEFAULT_PROCESSOR_SHARING_ENABLE);	  
