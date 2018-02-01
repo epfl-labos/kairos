@@ -383,7 +383,7 @@ public class ResourceTrackerService extends AbstractService implements
       resync.setDiagnosticsMessage(message);
       return resync;
     }
-
+    
     // Send ping
     this.nmLivelinessMonitor.receivedPing(nodeId);
 
@@ -407,6 +407,11 @@ public class ResourceTrackerService extends AbstractService implements
           new RMNodeEvent(nodeId, RMNodeEventType.REBOOTING));
       return resync;
     }
+    
+    //ProcessorSharing
+    LOG.info("PAMELA node "+rmNode.getNodeID()+" updating oldestyoungestage to "+remoteNodeStatus.getOldestYoungestAge());
+    rmNode.updateOldestYoungestAge(remoteNodeStatus.getOldestYoungestAge());
+    //this.rmContext.getScheduler().updateNodeOldestYoungestAge(rmNode);
     
     //pull node container updates
     List<NodeContainerUpdate> listNodeContainerUpdates = this.rmContext.getScheduler().pullNodeContainerUpdate(nodeId);

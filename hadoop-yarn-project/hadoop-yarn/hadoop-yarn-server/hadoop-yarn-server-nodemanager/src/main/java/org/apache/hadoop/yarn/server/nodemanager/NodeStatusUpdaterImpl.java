@@ -89,6 +89,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   private final Dispatcher dispatcher;
 
   private NodeId nodeId;
+  private int oldestYoungestAge;
   private long nextHeartBeatInterval;
   private ResourceTracker resourceTracker;
   private Resource totalResource;
@@ -348,10 +349,12 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
       LOG.debug("Node's health-status : " + nodeHealthStatus.getIsNodeHealthy()
           + ", " + nodeHealthStatus.getHealthReport());
     }
+    
+    LOG.info("PAMELA getNodeStatus with oldestYoungestAge "+oldestYoungestAge);
     List<ContainerStatus> containersStatuses = getContainerStatuses();
     NodeStatus nodeStatus =
         NodeStatus.newInstance(nodeId, responseId, containersStatuses,
-          createKeepAliveApplicationList(), nodeHealthStatus);
+          createKeepAliveApplicationList(), nodeHealthStatus, oldestYoungestAge);
 
     return nodeStatus;
   }
@@ -588,12 +591,14 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
             NodeHeartbeatResponse response = null;
             NodeStatus nodeStatus = getNodeStatus(lastHeartBeatID);
             
+            LOG.info("PAMELA heartbeat nodeStatus OldestYoungestAge "+nodeStatus.getOldestYoungestAge());
             NodeHeartbeatRequest request =
                 NodeHeartbeatRequest.newInstance(nodeStatus,
                   NodeStatusUpdaterImpl.this.context
                     .getContainerTokenSecretManager().getCurrentKey(),
                   NodeStatusUpdaterImpl.this.context.getNMTokenSecretManager()
                     .getCurrentKey());
+            LOG.info("PAMELA heartbeat request OldestYoungestAge "+request.getNodeStatus().getOldestYoungestAge());
             response = resourceTracker.nodeHeartbeat(request);
             //get next heartbeat interval from response
             nextHeartBeatInterval = response.getNextHeartBeatInterval();
@@ -709,6 +714,10 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
         new Thread(statusUpdaterRunnable, "Node Status Updater");
     statusUpdater.start();
   }
-  
-  
+	
+	@Override
+	public void addOldestYoungestAge(int oldestYoungestAge) {
+		LOG.info("PAMELA addOldestYoungestAge age " + oldestYoungestAge);
+		this.oldestYoungestAge = oldestYoungestAge;
+	}
 }

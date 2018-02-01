@@ -45,6 +45,9 @@ public interface RMNode {
    * @return the node id of this node.
    */
   public NodeId getNodeID();
+
+  public int getOldestYoungestAge();
+  public void updateOldestYoungestAge(int oldestYoungestAge);
   
   /**
    * the hostname of this node

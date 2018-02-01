@@ -45,6 +45,7 @@ public class NodeStatusPBImpl extends NodeStatus {
   boolean viaProto = false;
   
   private NodeId nodeId = null;
+  private int oldestYoungestAge = 0;
   private List<ContainerStatus> containers = null;
   private NodeHealthStatus nodeHealthStatus = null;
   private List<ApplicationId> keepAliveApplications = null;
@@ -211,6 +212,28 @@ public class NodeStatusPBImpl extends NodeStatus {
     this.nodeId = nodeId;
     
   }
+
+	@Override
+	public synchronized int getOldestYoungestAge() {
+	    NodeStatusProtoOrBuilder p = viaProto ? proto : builder;
+	    if (this.oldestYoungestAge != 0) {
+	      return this.oldestYoungestAge;
+	    }
+	    if (!p.hasOldestYoungestAge()) {
+	      return 0;
+	    }
+	    this.oldestYoungestAge = p.getOldestYoungestAge();
+	    
+		return this.oldestYoungestAge;
+	}
+	
+	@Override
+	public synchronized void setOldestYoungestAge(int oldestYoungestAge) {
+	    maybeInitBuilder();
+	    if (oldestYoungestAge == 0)
+	        builder.clearOldestYoungestAge();
+	    builder.setOldestYoungestAge(oldestYoungestAge);		
+	}
   
   @Override
   public synchronized List<ContainerStatus> getContainersStatuses() {

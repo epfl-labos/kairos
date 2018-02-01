@@ -424,7 +424,7 @@ public class CapacityScheduler extends
       int maxContainersPerNode = cs.conf.getMaximumContainersPerNode();
 	  FiCaSchedulerNode node = customerPriorityQueue.poll();
 	  while (node != null) {
-		  LOG.info("PAMELA node "+ node.getNodeName()+" has "+node.getNumContainers()+" active containers.");
+		  LOG.info("PAMELA scheduleProcessorSharing node "+ node.getNodeName()+" has "+node.getNumContainers()+" active containers. Age in RMNode "+ node.getRMNode().getOldestYoungestAge());
 		  if((maxContainersPerNode - node.getNumContainers()) > 0) 
 			  cs.allocateContainersToNode(node);
 		  node = customerPriorityQueue.poll();		  
@@ -1219,7 +1219,7 @@ public class CapacityScheduler extends
       RMNode node = nodeUpdatedEvent.getRMNode();
       nodeUpdate(node);
       if (!scheduleAsynchronously) {
-    	LOG.info("PAMELA Nodeupdated going to allocate containers "+node.getNodeID());
+        LOG.info("PAMELA Nodeupdated going to allocate containers "+node.getNodeID());
         allocateContainersToNode(getNode(node.getNodeID()));
       }
     }
@@ -1795,6 +1795,4 @@ public List<NodeContainerUpdate> pullNodeContainerUpdate(NodeId node) {
 	}
 	return listNodeContainerUpdate;
 }
-
-
 }
