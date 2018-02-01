@@ -941,9 +941,9 @@ public void run(){
 	LOG.info("thread entered for container "+getContainerId()+" current state is "+stateMachine.getCurrentState());
 	
 	while(stateMachine.getCurrentState() == ContainerState.RUNNING){
-		
 	  //LOG.info("thread loop for container "+getContainerId()+" memorysize "+memoryUpdateActorList.size()
 	  //		                                                +" cpusize "+cpuUpdateActorList.size());
+	  if(!processorSharingEnabled) {
 	  synchronized(quotaUpdateActorList){	
 	   //first check the quota list if it is empty
 	   if(quotaUpdateActorList.size() > 0){  
@@ -953,7 +953,7 @@ public void run(){
 		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota);
 		   continue;
 	    }
-	  }
+	  }}
 	  
 	  synchronized(cpuUpdateActorList){
 	   //then update cpuset
