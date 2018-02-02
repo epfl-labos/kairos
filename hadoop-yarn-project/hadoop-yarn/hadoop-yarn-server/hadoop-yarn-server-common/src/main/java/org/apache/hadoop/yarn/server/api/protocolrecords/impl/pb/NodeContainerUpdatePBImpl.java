@@ -18,7 +18,7 @@ public class NodeContainerUpdatePBImpl extends  NodeContainerUpdate{
 	 boolean viaProto = false;
 	
 	 private ContainerId containerId;
-	 
+	 private Integer resourceUpdateId;
 	 
 	 
 	 public NodeContainerUpdatePBImpl() {
@@ -61,7 +61,7 @@ public class NodeContainerUpdatePBImpl extends  NodeContainerUpdate{
 	 }
 	  
 	@Override
-	public void setContianerId(ContainerId containerId) {
+	public void setContainerId(ContainerId containerId) {
 	    maybeInitBuilder();
 		if (containerId == null) 
 		      builder.clearContainerId();
@@ -136,6 +136,28 @@ public class NodeContainerUpdatePBImpl extends  NodeContainerUpdate{
 	public boolean getResume() {
 		NodeContainerUpdateProtoOrBuilder p = viaProto ? proto : builder;
 		return p.getResume();
+	}
+
+	@Override
+	public void setUpdateRequestID(int updateRequestId) {
+	    maybeInitBuilder();
+		if (resourceUpdateId == 0) 
+		      builder.clearUpdateRequestId();
+		builder.setUpdateRequestId(updateRequestId); // do we need this?
+		this.resourceUpdateId = updateRequestId;	
+	}
+
+	@Override
+	public int getUpdateRequestID() {
+		NodeContainerUpdateProtoOrBuilder p = viaProto ? proto : builder;
+	    if (this.resourceUpdateId != 0) {
+	      return this.resourceUpdateId;
+	    }
+	    if (!p.hasContainerId()) {
+	      return 0;
+	    }
+	    this.resourceUpdateId =  p.getUpdateRequestId();
+	    return this.resourceUpdateId;
 	}
 
 }

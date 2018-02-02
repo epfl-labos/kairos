@@ -33,6 +33,8 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -86,6 +88,9 @@ import org.apache.hadoop.yarn.state.StateMachineFactory;
 import org.apache.hadoop.yarn.util.Clock;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.SystemClock;
+
+import javafx.util.Pair;
+
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodeContainerUpdate;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.StringUtils;
@@ -141,6 +146,8 @@ public class ContainerImpl implements Container {
   private boolean recoveredAsKilled = false;
   
   protected boolean processorSharingEnabled;
+  protected AtomicInteger lastRequestID;
+  protected Map<Integer,Integer> updateRequestsResults = new HashMap<Integer,Integer>();
 
   public ContainerImpl(Context context,Configuration conf, Dispatcher dispatcher,
       NMStateStoreService stateStore, ContainerLaunchContext launchContext,
@@ -164,6 +171,7 @@ public class ContainerImpl implements Container {
     this.cpuCores  = cpuCores;
     this.context = context;
     this.processorSharingEnabled = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_ENABLE, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_ENABLE);
+    lastRequestID = new AtomicInteger(0);
     stateMachine = stateMachineFactory.make(this);
   }
 
@@ -473,6 +481,19 @@ public class ContainerImpl implements Container {
     return this.containerId;
   }
 
+  @Override
+  public int getUpdateRequestResult(int updateRequestId) {
+	synchronized (updateRequestsResults) {
+	    return updateRequestsResults.get(updateRequestId);		
+	}
+  }
+
+  @Override
+  public int getNewUpdateRequestResultId() {
+    return lastRequestID.incrementAndGet();		
+  }
+ 
+  
   @Override
   public Resource getResource() {
     return this.resource;
@@ -827,17 +848,18 @@ public class ContainerImpl implements Container {
   
   private class DockerCommandThread extends Thread{
 	   
-  Queue<Integer> memoryUpdateActorList   = new LinkedList<Integer>();
-  Queue<Integer> quotaUpdateActorList    = new LinkedList<Integer>();
-  Queue<Set<Integer>> cpuUpdateActorList = new LinkedList<Set<Integer>>();  
-  Queue<Double> cpuFractionUpdateActorList = new LinkedList<Double>();  
+  Queue<Pair<Integer,Integer>> memoryUpdateActorList   = new LinkedList<Pair<Integer,Integer>>();
+  Queue<Pair<Integer,Integer>> quotaUpdateActorList    = new LinkedList<Pair<Integer,Integer>>();
+  Queue<Pair<Integer,Set<Integer>>> cpuUpdateActorList = new LinkedList<Pair<Integer,Set<Integer>>>();  
+  Queue<Pair<Integer,Double>> cpuFractionUpdateActorList = new LinkedList<Pair<Integer, Double>>();
 
+  
   public DockerCommandThread(){
 	  
 	  
   }
   
-  private void DockerCommandCpuQuota(Integer quota){
+  private int DockerCommandCpuQuota(Integer quota){
 	  List<String> commandPrefix = new ArrayList<String>();
 	  commandPrefix.add("docker");
 	  commandPrefix.add("update");
@@ -847,10 +869,10 @@ public class ContainerImpl implements Container {
 	  commandQuota.add(quota.toString());
 	  commandQuota.add(containerId.toString());
 	  String[] commandArrayQuota = commandQuota.toArray(new String[commandQuota.size()]);
-	  this.runDockerUpdateCommand(commandArrayQuota);
+	  return this.runDockerUpdateCommand(commandArrayQuota);
   }
   
-  private void DockerCommandCpuSet(Set<Integer> cores, Double coresFraction){
+  private int DockerCommandCpuSet(Set<Integer> cores, Double coresFraction){
 	  List<String> commandPrefix = new ArrayList<String>();
 	  commandPrefix.add("docker");
 	  commandPrefix.add("update");
@@ -876,10 +898,10 @@ public class ContainerImpl implements Container {
 	  commandCores.add(containerId.toString());  
 	  
 	  String[] commandArrayCores = commandCores.toArray(new String[commandCores.size()]);	  
-	  this.runDockerUpdateCommand(commandArrayCores);
+	  return this.runDockerUpdateCommand(commandArrayCores);
   }
   
-  private void DockerCommandMemory(Integer memory){
+  private int DockerCommandMemory(Integer memory){
 	  List<String> commandPrefix = new ArrayList<String>();
 	  commandPrefix.add("docker");
 	  commandPrefix.add("update");
@@ -889,7 +911,7 @@ public class ContainerImpl implements Container {
 	  commandMemory.add(memory.toString()+"m");
 	  commandMemory.add(containerId.toString());
 	  String[] commandArrayMemory = commandMemory.toArray(new String[commandMemory.size()]);
-	  this.runDockerUpdateCommand(commandArrayMemory);
+	  return this.runDockerUpdateCommand(commandArrayMemory);
    }
   
   private int runDockerUpdateCommand(String[] command){
@@ -898,7 +920,7 @@ public class ContainerImpl implements Container {
 		 commandString += c;
 		 commandString += " ";
 	 }
-	 LOG.info("run docker commands:"+commandString);
+	 LOG.info("run docker command:"+commandString);
 	 ShellCommandExecutor shExec = null; 
 	 int count = 10;
 	 while(count > 0){
@@ -925,13 +947,14 @@ public class ContainerImpl implements Container {
 	        shExec.close();
 	      }
 	    }
-        LOG.info("command execution successfully, commands "+commandString);
+        LOG.info("command execution successfully, command "+commandString);
         break; 
 	 }
 	 if(count > 0){
-		  LOG.info("command execution successfully and commands updates for"+count+" times");
+		  LOG.info("command execution successfully and command update for "+count+" times");
 	 }else{
-		  LOG.info("command execution fails");
+		  LOG.info("command execution failed, command "+commandString);
+		  return 1;
 	 }
 	 return 0;
    }
@@ -947,10 +970,20 @@ public void run(){
 	  synchronized(quotaUpdateActorList){	
 	   //first check the quota list if it is empty
 	   if(quotaUpdateActorList.size() > 0){  
-		   int quota = quotaUpdateActorList.poll();
+		   Pair<Integer, Integer> quota = quotaUpdateActorList.poll();
+		   long startTime = System.currentTimeMillis();
 		   LOG.info("UPDATE START container "+getContainerId()+" quota "+quota);
-		   DockerCommandCpuQuota(quota);
-		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota);
+		   int successful = DockerCommandCpuQuota(quota.getValue()) == 0 ? 0 : 1;
+		   long millis = (System.currentTimeMillis()-startTime);
+		   String elapsed = String.format("%02d:%02d", TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
+				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis)));
+		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota+ " elapsed time "+elapsed+ " millis "+millis+ " successful? " +(successful==0));
+		   synchronized (updateRequestsResults) {
+			   int oldUpdateRequestResults = updateRequestsResults.get(quota.getKey());
+			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
+			   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ quota.getKey() +" newUpdateRequestResult "+newUpdateRequestResult);
+			   updateRequestsResults.put(quota.getKey(),newUpdateRequestResult);
+		   }
 		   continue;
 	    }
 	  }}
@@ -959,13 +992,23 @@ public void run(){
 	   //then update cpuset
 	   if(cpuUpdateActorList.size( )> 0){
 		   synchronized(cpuFractionUpdateActorList) {
-			   LOG.info("cpu size "+cpuUpdateActorList.size());
-			   Set<Integer> cpuSet = cpuUpdateActorList.poll();
-			   Double cpuFraction = cpuFractionUpdateActorList.poll();
-			   LOG.info("PAMELA container "+ getContainerId() +" cpuSet " + cpuSet + " size "+cpuSet.size()+" >= cpu fraction " + cpuFraction + " ? " + (cpuSet.size()>=cpuFraction));
-			   LOG.info("UPDATE START container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.size());
-			   DockerCommandCpuSet(cpuSet, cpuFraction);
-			   LOG.info("UPDATE END container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.size());
+			   //LOG.info("cpu size "+cpuUpdateActorList.size());
+			   Pair<Integer, Set<Integer>> cpuSet = cpuUpdateActorList.poll();
+			   Pair<Integer, Double> cpuFraction = cpuFractionUpdateActorList.poll();
+			   LOG.info("PAMELA container "+ getContainerId() +" cpuSet " + cpuSet + " size "+cpuSet.getValue().size()+" >= cpu fraction " + cpuFraction + " ? " + (cpuSet.getValue().size()>=cpuFraction.getValue()));
+			   LOG.info("UPDATE START container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.getValue().size());
+			   long startTime = System.currentTimeMillis();
+			   int successful = DockerCommandCpuSet(cpuSet.getValue(), cpuFraction.getValue());
+			   long millis = (System.currentTimeMillis()-startTime);
+			   String elapsed = String.format("%02d:%02d", TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
+					    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis)));
+			   LOG.info("UPDATE END container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.getValue().size()+ " elapsed time "+elapsed+ " millis "+millis+ " successful? " +(successful==0));
+			   synchronized (updateRequestsResults) {
+				   int oldUpdateRequestResults = updateRequestsResults.get(cpuFraction.getKey());
+				   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
+				   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ cpuFraction.getKey() +" newUpdateRequestResult "+newUpdateRequestResult);
+				   updateRequestsResults.put(cpuFraction.getKey(),newUpdateRequestResult);
+			   }
 			   continue;
 		   }
 	    }
@@ -975,10 +1018,20 @@ public void run(){
 	   //finally we update memory
 	   if(memoryUpdateActorList.size() > 0){
 		   LOG.info("memory size "+memoryUpdateActorList.size());
-		   int memory = memoryUpdateActorList.poll();
+		   Pair<Integer, Integer> memory = memoryUpdateActorList.poll();
 		   LOG.info("UPDATE START container "+getContainerId()+" memory "+memory);
-		   DockerCommandMemory(memory);
-		   LOG.info("UPDATE END container "+getContainerId()+" memory "+memory);
+		   long startTime = System.currentTimeMillis();
+		   int successful = DockerCommandMemory(memory.getValue());
+		   long millis = (System.currentTimeMillis()-startTime);
+		   String elapsed = String.format("%02d:%02d", TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
+				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis)));
+		   LOG.info("UPDATE END container "+getContainerId()+" memory "+memory+ " elapsed time "+elapsed+ " millis "+millis+ " successful? " +(successful==0));
+		   synchronized (updateRequestsResults) {
+			   int oldUpdateRequestResults = updateRequestsResults.get(memory.getKey());
+			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
+			   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ memory.getKey() +" newUpdateRequestResult "+newUpdateRequestResult);
+			   updateRequestsResults.put(memory.getKey(),newUpdateRequestResult);
+		   }
 		   continue;
 	   }
 	 }
@@ -1005,8 +1058,9 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 	  Integer targetCores = (int) Math.ceil(nodeContainerUpdate.getCores());
 	  //then we update resource requirement, first we update cpu set
 	  Set<Integer> cores = context.getCoresManager().resetCores(containerId,targetCores);
+	  int updateRequestId = nodeContainerUpdate.getUpdateRequestID();
 	  
-	  LOG.info("node container update cores "+cores);
+	  LOG.info("node container "+containerId+" update cores "+cores + " updateRequestId "+updateRequestId);
 	  //all cores are preempted
 	  if(cores.size() == 0){
 	      //in this case, we run the docker on core 0
@@ -1020,14 +1074,14 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 		   if(cpuUpdateActorList.size( )> 0){
 			  cpuUpdateActorList.clear();
 		    }
-		   cpuUpdateActorList.add(cores);
+		   cpuUpdateActorList.add(new Pair<Integer,Set<Integer>>(updateRequestId,cores));
 			// ProcessorSharing, we need to use a fraction of the CPU
 		   synchronized(cpuFractionUpdateActorList){
 			   LOG.info("PAMELA container "+containerId+" adding fraction of cores to be "+nodeContainerUpdate.getCores());
 			   if(cpuFractionUpdateActorList.size( )> 0){
 				   cpuFractionUpdateActorList.clear();
 			   }
-			   cpuFractionUpdateActorList.add(nodeContainerUpdate.getCores());
+			   cpuFractionUpdateActorList.add(new Pair<Integer,Double>(updateRequestId,nodeContainerUpdate.getCores()));
 		   }
 	   }
 	  
@@ -1038,7 +1092,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 			 if(quotaUpdateActorList.size() > 0){
 				 quotaUpdateActorList.clear();
 			  }
-			  quotaUpdateActorList.add(1000);
+			  quotaUpdateActorList.add(new Pair<Integer,Integer>(updateRequestId,1000));
 		  }
 	  }else if(resumed){
 		  synchronized(quotaUpdateActorList){	
@@ -1046,12 +1100,12 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 				 if(quotaUpdateActorList.size() > 0){
 					 quotaUpdateActorList.clear();
 		          }
-				  quotaUpdateActorList.add(-1);
+				  quotaUpdateActorList.add(new Pair<Integer,Integer>(updateRequestId,-1));
 	      }
 	  }
 	  
 	  //we then update memory usage
-	  List<Integer> toAdded = new ArrayList<Integer>();
+	  List<Pair<Integer,Integer>> toAdded = new ArrayList<Pair<Integer,Integer>>();
 	  Integer currentMemory = currentResource.getMemory();
 	  Integer targetMemory  = nodeContainerUpdate.getMemory();
 	  
@@ -1070,13 +1124,13 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 				  currentMemory /=2;
 			  }
 			  
-			toAdded.add(currentMemory);
+			toAdded.add(new Pair<Integer,Integer>(updateRequestId,currentMemory));
 		  }
-		 toAdded.add(targetMemory);
+		 toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
 		 LOG.info("node container update memory "+targetMemory);
 		  
 	  }else{
-		toAdded.add(targetMemory);
+		toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
 		LOG.info("node container update memory "+targetMemory);
 	  }
 	  
@@ -1088,12 +1142,17 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
         LOG.info("PAMELA container "+ getContainerId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
         memoryUpdateActorList.addAll(toAdded);
    }
+      
+   synchronized(updateRequestsResults) {
+	   LOG.info("PAMELA container "+ getContainerId()+" initializing updaterequestresult for update "+nodeContainerUpdate.getUpdateRequestID()+" to -1");
+	   updateRequestsResults.put(nodeContainerUpdate.getUpdateRequestID(), -1);
+   }
+  }
 }
 
-  }
   private void ProcessResourceUpdate(NodeContainerUpdate nodeContainerUpdate){
 	  LOG.info("process resource update: container  "+getContainerId()+" cores "+nodeContainerUpdate.getCores()+" memory "+nodeContainerUpdate.getMemory());
-	  dockerUpdateThread.ProcessNodeContainerUpdate(nodeContainerUpdate);;
+	  dockerUpdateThread.ProcessNodeContainerUpdate(nodeContainerUpdate);
   }
   
 

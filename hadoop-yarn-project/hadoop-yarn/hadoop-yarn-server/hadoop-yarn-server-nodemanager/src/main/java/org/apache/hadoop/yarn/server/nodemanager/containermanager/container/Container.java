@@ -58,4 +58,8 @@ public interface Container extends EventHandler<ContainerEvent> {
   
   Set<Integer> getCpuCores();
 
+  int getUpdateRequestResult(int updateRequestId);
+
+  int getNewUpdateRequestResultId();
+
 }
