@@ -60,6 +60,6 @@ public interface Container extends EventHandler<ContainerEvent> {
 
   int getUpdateRequestResult(int updateRequestId);
 
-  int getNewUpdateRequestResultId();
+  boolean getWasLaunched();
 
 }

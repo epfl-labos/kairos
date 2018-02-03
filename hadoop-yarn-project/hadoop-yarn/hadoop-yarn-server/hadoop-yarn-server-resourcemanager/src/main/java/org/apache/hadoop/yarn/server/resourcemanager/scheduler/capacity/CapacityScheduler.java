@@ -1458,7 +1458,7 @@ public class CapacityScheduler extends
 	  Resource currentResource = cont.getCurrentUsedResource();
 	  
 	  NodeContainerUpdate nodeContainerUpdate= NodeContainerUpdate.newInstance(containerId, 
-				                                  currentResource.getMemory(), currentResource.getVirtualCores(),false,true);
+				                                  currentResource.getMemory(), currentResource.getVirtualCores(),false,true,-1);
 	  
 	  LOG.info("get container   "+containerId+"to resume "+"currentresource:   "+currentResource+"on host: "+cont.getAllocatedNode().getHost());
 	  //check if the resource is right
@@ -1501,7 +1501,7 @@ public class CapacityScheduler extends
 	 //get current resource after preemption
 	 Resource currentResource = cont.getCurrentUsedResource();
 	 NodeContainerUpdate nodeContainerUpdate= NodeContainerUpdate.newInstance(containerId, 
-			                                  currentResource.getMemory(), currentResource.getVirtualCores(),true,false);
+			                                  currentResource.getMemory(), currentResource.getVirtualCores(),true,false, -1);
 	 
 	 LOG.info("get container   "+containerId+" to suspend "+" on host "+nodeId.getHost()+" currentresource:   "+currentResource);
 	 if(nodeContainerUpdateMap.get(nodeId) == null){

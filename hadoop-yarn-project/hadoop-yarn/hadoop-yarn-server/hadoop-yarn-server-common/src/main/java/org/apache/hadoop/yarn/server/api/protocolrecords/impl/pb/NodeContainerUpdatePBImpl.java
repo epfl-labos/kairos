@@ -141,7 +141,7 @@ public class NodeContainerUpdatePBImpl extends  NodeContainerUpdate{
 	@Override
 	public void setUpdateRequestID(int updateRequestId) {
 	    maybeInitBuilder();
-		if (resourceUpdateId == 0) 
+		if (updateRequestId == 0) 
 		      builder.clearUpdateRequestId();
 		builder.setUpdateRequestId(updateRequestId); // do we need this?
 		this.resourceUpdateId = updateRequestId;	

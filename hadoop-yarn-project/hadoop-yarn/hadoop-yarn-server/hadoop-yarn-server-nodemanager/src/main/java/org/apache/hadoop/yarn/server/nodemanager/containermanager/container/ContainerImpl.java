@@ -18,7 +18,6 @@
 
 package org.apache.hadoop.yarn.server.nodemanager.containermanager.container;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -89,8 +88,6 @@ import org.apache.hadoop.yarn.util.Clock;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.SystemClock;
 
-import javafx.util.Pair;
-
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodeContainerUpdate;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.StringUtils;
@@ -113,7 +110,12 @@ public class ContainerImpl implements Container {
   private int exitCode = ContainerExitStatus.INVALID;
   private final StringBuilder diagnostics;
   private boolean wasLaunched;
-  private long containerLaunchStartTime;
+  @Override
+  public boolean getWasLaunched() {
+	return wasLaunched;
+  }
+
+private long containerLaunchStartTime;
   private final Context context;
   private DockerCommandThread dockerUpdateThread = new DockerCommandThread();
   private static Clock clock = new SystemClock();
@@ -146,7 +148,6 @@ public class ContainerImpl implements Container {
   private boolean recoveredAsKilled = false;
   
   protected boolean processorSharingEnabled;
-  protected AtomicInteger lastRequestID;
   protected Map<Integer,Integer> updateRequestsResults = new HashMap<Integer,Integer>();
 
   public ContainerImpl(Context context,Configuration conf, Dispatcher dispatcher,
@@ -171,7 +172,6 @@ public class ContainerImpl implements Container {
     this.cpuCores  = cpuCores;
     this.context = context;
     this.processorSharingEnabled = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_ENABLE, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_ENABLE);
-    lastRequestID = new AtomicInteger(0);
     stateMachine = stateMachineFactory.make(this);
   }
 
@@ -487,12 +487,6 @@ public class ContainerImpl implements Container {
 	    return updateRequestsResults.get(updateRequestId);		
 	}
   }
-
-  @Override
-  public int getNewUpdateRequestResultId() {
-    return lastRequestID.incrementAndGet();		
-  }
- 
   
   @Override
   public Resource getResource() {
@@ -801,11 +795,11 @@ public class ContainerImpl implements Container {
     public void transition(ContainerImpl container, ContainerEvent event) {
       container.sendContainerMonitorStartEvent();
       container.metrics.runningContainer();
-      container.wasLaunched  = true;
       long duration = clock.getTime() - container.containerLaunchStartTime;
       container.metrics.addContainerLaunchDuration(duration);
       //we start docker container update thread here
       container.dockerUpdateThread.start();
+      container.wasLaunched  = true;
 
       if (container.recoveredAsKilled) {
         LOG.info("Killing " + container.containerId
@@ -838,14 +832,40 @@ public class ContainerImpl implements Container {
 	    	container.ProcessResourceUpdate(updateEvent.getNodeContainerUpdate());
 	    }
 	  }
-  
+    
+  private class Pair<A, B> {
+	  
+	   private final A fst;
+	   private final B snd;
+	  
+	    public Pair(A a, B b) {
+	      this.fst = a;
+	     this.snd = b;
+	    }
+
+	   @Override public boolean equals(Object o) {
+	      if (this == o) return true;
+	      if (!(o instanceof Pair)) return false;
+	  
+	      Pair<?, ?> pair = (Pair<?, ?>) o;
+	  
+	      if (!fst.equals(pair.fst)) return false;
+	      if (!snd.equals(pair.snd)) return false;
+	  
+	      return true;
+	    }
+	  
+	    @Override public int hashCode() {
+	      int result = fst.hashCode();
+	      result = 31 * result + snd.hashCode();
+	      return result;
+	    }
+  }
   
   /**
    * TO launch thread to process container update event
    * @param nodeContainerUpdate
    */
-  
-  
   private class DockerCommandThread extends Thread{
 	   
   Queue<Pair<Integer,Integer>> memoryUpdateActorList   = new LinkedList<Pair<Integer,Integer>>();
@@ -973,16 +993,14 @@ public void run(){
 		   Pair<Integer, Integer> quota = quotaUpdateActorList.poll();
 		   long startTime = System.currentTimeMillis();
 		   LOG.info("UPDATE START container "+getContainerId()+" quota "+quota);
-		   int successful = DockerCommandCpuQuota(quota.getValue()) == 0 ? 0 : 1;
+		   int successful = DockerCommandCpuQuota(quota.snd) == 0 ? 0 : 1;
 		   long millis = (System.currentTimeMillis()-startTime);
-		   String elapsed = String.format("%02d:%02d", TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
-				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis)));
-		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota+ " elapsed time "+elapsed+ " millis "+millis+ " successful? " +(successful==0));
+		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota+ " elapsed time millis "+millis+ " successful? " +(successful==0));
 		   synchronized (updateRequestsResults) {
-			   int oldUpdateRequestResults = updateRequestsResults.get(quota.getKey());
+			   int oldUpdateRequestResults = updateRequestsResults.get(quota.fst);
 			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-			   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ quota.getKey() +" newUpdateRequestResult "+newUpdateRequestResult);
-			   updateRequestsResults.put(quota.getKey(),newUpdateRequestResult);
+			   LOG.info("updateRequestsResults updateRequestId "+ quota.fst  +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
+			   updateRequestsResults.put(quota.fst,newUpdateRequestResult);
 		   }
 		   continue;
 	    }
@@ -995,19 +1013,16 @@ public void run(){
 			   //LOG.info("cpu size "+cpuUpdateActorList.size());
 			   Pair<Integer, Set<Integer>> cpuSet = cpuUpdateActorList.poll();
 			   Pair<Integer, Double> cpuFraction = cpuFractionUpdateActorList.poll();
-			   LOG.info("PAMELA container "+ getContainerId() +" cpuSet " + cpuSet + " size "+cpuSet.getValue().size()+" >= cpu fraction " + cpuFraction + " ? " + (cpuSet.getValue().size()>=cpuFraction.getValue()));
-			   LOG.info("UPDATE START container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.getValue().size());
+			   LOG.info("UPDATE START request "+cpuFraction.fst+" container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.snd.size()+" >= cpu fraction " + cpuFraction.snd);
 			   long startTime = System.currentTimeMillis();
-			   int successful = DockerCommandCpuSet(cpuSet.getValue(), cpuFraction.getValue());
+			   int successful = DockerCommandCpuSet(cpuSet.snd, cpuFraction.snd);
 			   long millis = (System.currentTimeMillis()-startTime);
-			   String elapsed = String.format("%02d:%02d", TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
-					    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis)));
-			   LOG.info("UPDATE END container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.getValue().size()+ " elapsed time "+elapsed+ " millis "+millis+ " successful? " +(successful==0));
+			   LOG.info("UPDATE END request "+cpuFraction.fst+"container "+getContainerId()+" cpuSet "+cpuSet.snd + " size "+cpuSet.snd.size()+ " elapsed time millis "+millis+ " successful? " +(successful==0));
 			   synchronized (updateRequestsResults) {
-				   int oldUpdateRequestResults = updateRequestsResults.get(cpuFraction.getKey());
+				   int oldUpdateRequestResults = updateRequestsResults.get(cpuFraction.fst);
 				   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-				   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ cpuFraction.getKey() +" newUpdateRequestResult "+newUpdateRequestResult);
-				   updateRequestsResults.put(cpuFraction.getKey(),newUpdateRequestResult);
+				   LOG.info("updateRequestsResults updateRequest "+ cpuFraction.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
+				   updateRequestsResults.put(cpuFraction.fst,newUpdateRequestResult);
 			   }
 			   continue;
 		   }
@@ -1021,16 +1036,14 @@ public void run(){
 		   Pair<Integer, Integer> memory = memoryUpdateActorList.poll();
 		   LOG.info("UPDATE START container "+getContainerId()+" memory "+memory);
 		   long startTime = System.currentTimeMillis();
-		   int successful = DockerCommandMemory(memory.getValue());
+		   int successful = DockerCommandMemory(memory.snd);
 		   long millis = (System.currentTimeMillis()-startTime);
-		   String elapsed = String.format("%02d:%02d", TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
-				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis)));
-		   LOG.info("UPDATE END container "+getContainerId()+" memory "+memory+ " elapsed time "+elapsed+ " millis "+millis+ " successful? " +(successful==0));
+		   LOG.info("UPDATE END container "+getContainerId()+" memory "+memory+ " elapsed time millis "+millis+ " successful? " +(successful==0));
 		   synchronized (updateRequestsResults) {
-			   int oldUpdateRequestResults = updateRequestsResults.get(memory.getKey());
+			   int oldUpdateRequestResults = updateRequestsResults.get(memory.fst);
 			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-			   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ memory.getKey() +" newUpdateRequestResult "+newUpdateRequestResult);
-			   updateRequestsResults.put(memory.getKey(),newUpdateRequestResult);
+			   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ memory.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
+			   updateRequestsResults.put(memory.fst,newUpdateRequestResult);
 		   }
 		   continue;
 	   }
