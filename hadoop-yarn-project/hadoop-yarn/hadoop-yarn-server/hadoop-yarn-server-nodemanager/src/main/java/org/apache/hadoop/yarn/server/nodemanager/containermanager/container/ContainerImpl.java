@@ -995,7 +995,7 @@ public void run(){
 		   LOG.info("UPDATE START container "+getContainerId()+" quota "+quota);
 		   int successful = DockerCommandCpuQuota(quota.snd) == 0 ? 0 : 1;
 		   long millis = (System.currentTimeMillis()-startTime);
-		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota+ " elapsed time millis "+millis+ " successful? " +(successful==0));
+		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota.snd+ " elapsed time millis "+millis+ " successful? " +(successful==0));
 		   synchronized (updateRequestsResults) {
 			   int oldUpdateRequestResults = updateRequestsResults.get(quota.fst);
 			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
@@ -1013,15 +1013,15 @@ public void run(){
 			   //LOG.info("cpu size "+cpuUpdateActorList.size());
 			   Pair<Integer, Set<Integer>> cpuSet = cpuUpdateActorList.poll();
 			   Pair<Integer, Double> cpuFraction = cpuFractionUpdateActorList.poll();
-			   LOG.info("UPDATE START request "+cpuFraction.fst+" container "+getContainerId()+" cpuSet "+cpuSet + " size "+cpuSet.snd.size()+" >= cpu fraction " + cpuFraction.snd);
+			   LOG.info("UPDATE START request "+cpuFraction.fst+" container "+getContainerId()+" cpuSet "+cpuSet.snd + " size "+cpuSet.snd.size()+" >= cpu fraction " + cpuFraction.snd);
 			   long startTime = System.currentTimeMillis();
 			   int successful = DockerCommandCpuSet(cpuSet.snd, cpuFraction.snd);
 			   long millis = (System.currentTimeMillis()-startTime);
-			   LOG.info("UPDATE END request "+cpuFraction.fst+"container "+getContainerId()+" cpuSet "+cpuSet.snd + " size "+cpuSet.snd.size()+ " elapsed time millis "+millis+ " successful? " +(successful==0));
+			   LOG.info("UPDATE END request "+cpuFraction.fst+" container "+getContainerId()+" cpuSet "+cpuSet.snd + " size "+cpuSet.snd.size()+ " elapsed time millis "+millis+ " successful? " +(successful==0));
 			   synchronized (updateRequestsResults) {
 				   int oldUpdateRequestResults = updateRequestsResults.get(cpuFraction.fst);
 				   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-				   LOG.info("updateRequestsResults updateRequest "+ cpuFraction.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
+				   LOG.info("container "+getContainerId()+" updateRequest "+ cpuFraction.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
 				   updateRequestsResults.put(cpuFraction.fst,newUpdateRequestResult);
 			   }
 			   continue;
@@ -1034,15 +1034,15 @@ public void run(){
 	   if(memoryUpdateActorList.size() > 0){
 		   LOG.info("memory size "+memoryUpdateActorList.size());
 		   Pair<Integer, Integer> memory = memoryUpdateActorList.poll();
-		   LOG.info("UPDATE START container "+getContainerId()+" memory "+memory);
+		   LOG.info("UPDATE START request "+memory.fst+" container "+getContainerId()+" memory "+memory.snd);
 		   long startTime = System.currentTimeMillis();
 		   int successful = DockerCommandMemory(memory.snd);
 		   long millis = (System.currentTimeMillis()-startTime);
-		   LOG.info("UPDATE END container "+getContainerId()+" memory "+memory+ " elapsed time millis "+millis+ " successful? " +(successful==0));
+		   LOG.info("UPDATE END request "+memory.fst+" container "+getContainerId()+" memory "+memory.fst+ " elapsed time millis "+millis+ " successful? " +(successful==0));
 		   synchronized (updateRequestsResults) {
 			   int oldUpdateRequestResults = updateRequestsResults.get(memory.fst);
 			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-			   LOG.info("UPDATE END container "+getContainerId()+ " updateRequestId "+ memory.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
+			   LOG.info("container "+getContainerId()+ " updateRequestId "+ memory.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
 			   updateRequestsResults.put(memory.fst,newUpdateRequestResult);
 		   }
 		   continue;
