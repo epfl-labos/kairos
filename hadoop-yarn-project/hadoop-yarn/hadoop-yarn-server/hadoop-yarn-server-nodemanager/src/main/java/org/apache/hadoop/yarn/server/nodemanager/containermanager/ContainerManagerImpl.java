@@ -1450,6 +1450,10 @@ public class ContainerManagerImpl extends CompositeService implements
 	    			 + " suspendRequestId "+ pendingSuspendUpdateRequestId
 	    			 + " pendingResume "+(pendingResumeContainer != null? pendingResumeContainer.container.getContainerId(): " none")
 	    			 + " resumeRequestId "+pendingResumeUpdateRequestId);
+
+	    	 printContainers(currentlyExecutingContainers,"BEFORE currentlyExecuting");
+	    	 printContainers(suspendedContainers,"BEFORE suspended");
+	    	 printContainers(containersToSuspendList,"BEFORE containerToSuspend");
 	    	 
 	    	 //To check what happens when adding a new container
 	    	 synchronized(containersToSuspendList) {
@@ -1544,12 +1548,14 @@ public class ContainerManagerImpl extends CompositeService implements
 	    		 assert(containersToSuspendList.size() == 0);
 	    		 // SUSPEND executing container
 			     ProcessorSharingContainer suspendContainer = currentlyExecutingContainers.poll();
-			     assert(!containerExiting(suspendContainer.container.getContainerState()));
-		         LOG.info("PAMELA ProcessorSharingMonitor STARTING PS "+suspendContainer.container.getContainerId()+" age "+suspendContainer.age+" state "+suspendContainer.container.getContainerState());
-        		 pendingSuspendUpdateRequestId = suspendContainer(suspendContainer.container);
-        		 pendingSuspendContainer = suspendContainer;
-				 needToResume = true;
+			     if(suspendContainer != null) {
+				     assert(!containerExiting(suspendContainer.container.getContainerState()));
+			         LOG.info("PAMELA ProcessorSharingMonitor STARTING PS "+suspendContainer.container.getContainerId()+" age "+suspendContainer.age+" state "+suspendContainer.container.getContainerState());
+	        		 pendingSuspendUpdateRequestId = suspendContainer(suspendContainer.container);
+	        		 pendingSuspendContainer = suspendContainer;
+			     } // else then resume TODO check for multiple containers at once 
 				 delay = 0;
+		    	 needToResume = true;
 	    	   } else {
 	    		   timeLeftProcessorSharingInterval = this.processorSharingInterval;
 	    	   }
@@ -1569,9 +1575,9 @@ public class ContainerManagerImpl extends CompositeService implements
 	    	 } else
 	    		 resumeExtra = false; //suspendedContainers empty
 
-	    	 printContainers(currentlyExecutingContainers,"currentlyExecuting");
-	    	 printContainers(suspendedContainers,"suspended");
-	    	 printContainers(containersToSuspendList,"containerToSuspend");
+	    	 printContainers(currentlyExecutingContainers,"AFTER currentlyExecuting");
+	    	 printContainers(suspendedContainers,"AFTER suspended");
+	    	 printContainers(containersToSuspendList,"AFTER containerToSuspend");
 	     }
 	  }
 	  
