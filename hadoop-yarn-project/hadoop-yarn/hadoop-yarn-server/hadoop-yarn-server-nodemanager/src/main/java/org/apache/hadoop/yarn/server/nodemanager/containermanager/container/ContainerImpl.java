@@ -1038,7 +1038,7 @@ public void run(){
 		   long startTime = System.currentTimeMillis();
 		   int successful = DockerCommandMemory(memory.snd);
 		   long millis = (System.currentTimeMillis()-startTime);
-		   LOG.info("UPDATE END request "+memory.fst+" container "+getContainerId()+" memory "+memory.fst+ " elapsed time millis "+millis+ " successful? " +(successful==0));
+		   LOG.info("UPDATE END request "+memory.fst+" container "+getContainerId()+" memory "+memory.snd+ " elapsed time millis "+millis+ " successful? " +(successful==0));
 		   synchronized (updateRequestsResults) {
 			   int oldUpdateRequestResults = updateRequestsResults.get(memory.fst);
 			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
@@ -1073,7 +1073,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 	  Set<Integer> cores = context.getCoresManager().resetCores(containerId,targetCores);
 	  int updateRequestId = nodeContainerUpdate.getUpdateRequestID();
 	  
-	  LOG.info("node container "+containerId+" update cores "+cores + " updateRequestId "+updateRequestId);
+	  LOG.info("node container "+containerId+" update cores "+cores + " updateRequestId "+updateRequestId+" memory target "+nodeContainerUpdate.getMemory()+ " current memory "+currentResource.getMemory());
 	  //all cores are preempted
 	  if(cores.size() == 0){
 	      //in this case, we run the docker on core 0
@@ -1121,41 +1121,43 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 	  List<Pair<Integer,Integer>> toAdded = new ArrayList<Pair<Integer,Integer>>();
 	  Integer currentMemory = currentResource.getMemory();
 	  Integer targetMemory  = nodeContainerUpdate.getMemory();
-	  
-	  //the minimum memory for a container
-	  if(targetMemory < 128){
-		  targetMemory = 128;
-	  }
-	  
-	  if(targetMemory < currentMemory){
-		  if(!processorSharingEnabled)
-		  while(currentMemory > targetMemory){
-			  
-			  if(currentMemory > 1024){  
-				  currentMemory -= 1024;
-			  }else{
-				  currentMemory /=2;
-			  }
-			  
-			toAdded.add(new Pair<Integer,Integer>(updateRequestId,currentMemory));
+	  if(!targetMemory.equals(currentMemory)) {
+		  //the minimum memory for a container
+		  if(targetMemory < 128){
+			  targetMemory = 128;
 		  }
-		 toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
-		 LOG.info("node container update memory "+targetMemory);
 		  
-	  }else{
-		toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
-		LOG.info("node container update memory "+targetMemory);
+		  if(targetMemory < currentMemory){
+			  if(!processorSharingEnabled)
+			  while(currentMemory > targetMemory){
+				  
+				  if(currentMemory > 1024){  
+					  currentMemory -= 1024;
+				  }else{
+					  currentMemory /=2;
+				  }
+				  
+				toAdded.add(new Pair<Integer,Integer>(updateRequestId,currentMemory));
+			  }
+			 toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
+			 //LOG.info("node container update memory "+targetMemory);
+			  
+		  }else{
+			toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
+			//LOG.info("node container update memory "+targetMemory);
+		  }
+		  
+	   synchronized(memoryUpdateActorList){
+			   //finally we update memory
+	        if(memoryUpdateActorList.size() > 0){
+			    memoryUpdateActorList.clear();
+			 }
+	        LOG.info("PAMELA container "+ getContainerId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
+	        memoryUpdateActorList.addAll(toAdded);
+        }
+	  } else {
+		  LOG.info("PAMELA container "+ getContainerId()+" not updating memory");
 	  }
-	  
-   synchronized(memoryUpdateActorList){
-		   //finally we update memory
-        if(memoryUpdateActorList.size() > 0){
-		    memoryUpdateActorList.clear();
-		 }
-        LOG.info("PAMELA container "+ getContainerId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
-        memoryUpdateActorList.addAll(toAdded);
-   }
-      
    synchronized(updateRequestsResults) {
 	   LOG.info("PAMELA container "+ getContainerId()+" initializing updaterequestresult for update "+nodeContainerUpdate.getUpdateRequestID()+" to -1");
 	   updateRequestsResults.put(nodeContainerUpdate.getUpdateRequestID(), -1);
