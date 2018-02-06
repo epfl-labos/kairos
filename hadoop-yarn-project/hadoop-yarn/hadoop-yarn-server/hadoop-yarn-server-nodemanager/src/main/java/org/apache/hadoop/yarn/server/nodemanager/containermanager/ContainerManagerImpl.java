@@ -1475,49 +1475,58 @@ public class ContainerManagerImpl extends CompositeService implements
 		    	     continue; // Skip the rest and go to sleep
 		    	 }
 	    	 }
-	    	 //TODO ages!
-	    	 // Check if pendingSuspend finished
-	    	 if (pendingSuspendUpdateRequestId != -1) {
-	    		 LOG.info("PAMELA ProcessorSharingMonitor checking pending suspend "+pendingSuspendUpdateRequestId);
-	    		 assert(pendingResumeUpdateRequestId == -1);
-	    		 // TODO maybe do the same as pending resume in case container is null 
-	    		 int statusPendingSuspend = pendingSuspendContainer.container.getUpdateRequestResult(pendingSuspendUpdateRequestId);
-	    		 if (statusPendingSuspend > -1) {
-	    			 if (statusPendingSuspend == 0) { //SUCCEEDED SUSPENDING
-						// Cleanup data structures
-		    			LOG.info("PAMELA ProcessorSharingMonitor FINISHED suspending "+pendingSuspendContainer.container.getContainerId()+" suspendRequestId "+pendingSuspendUpdateRequestId+" needToResume "+needToResume);
-		    			ProcessorSharingContainer finishedSuspendingContainer = new ProcessorSharingContainer(pendingSuspendContainer);
-						pendingSuspendContainer.suspend();
-						pendingSuspendUpdateRequestId = -1;
-						pendingSuspendContainer = null;
-	    				if(needToResume) {
-	    					ProcessorSharingContainer resumeContainer = suspendedContainers.poll();
-    					   //RESUME suspendedContainer
-			        	   pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
-			        	   pendingResumeContainer = resumeContainer;
-	    				 } else {
-	    					 timeLeftProcessorSharingInterval = processorSharingInterval;
-	    				 }
-						suspendedContainers.add(finishedSuspendingContainer);
+            // TODO ages!
+            // Check if pendingSuspend finished
+            if (pendingSuspendUpdateRequestId != -1) {
+               LOG.info("PAMELA ProcessorSharingMonitor checking pending suspend " + pendingSuspendUpdateRequestId);
+               assert (pendingResumeUpdateRequestId == -1);
+               // TODO maybe do the same as pending resume in case container is null
+               int statusPendingSuspend = pendingSuspendContainer.container.getUpdateRequestResult(pendingSuspendUpdateRequestId);
+               if (statusPendingSuspend > -1) {
+                  if (statusPendingSuspend == 0) { // SUCCEEDED SUSPENDING
+                     // Cleanup data structures
+                     LOG.info("PAMELA ProcessorSharingMonitor FINISHED suspending " + pendingSuspendContainer.container.getContainerId()
+                           + " suspendRequestId " + pendingSuspendUpdateRequestId + " needToResume " + needToResume);
+                     ProcessorSharingContainer finishedSuspendingContainer = new ProcessorSharingContainer(pendingSuspendContainer);
+                     pendingSuspendContainer.suspend();
+                     pendingSuspendUpdateRequestId = -1;
+                     pendingSuspendContainer = null;
+                     if (needToResume) {
+                        if (suspendedContainers.size() > 0) {
+                           ProcessorSharingContainer resumeContainer = suspendedContainers.poll();
+                           // RESUME suspendedContainer
+                           pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
+                           pendingResumeContainer = resumeContainer;
+                        } else { //nothing to resume! so resume just suspended container
+                           LOG.info("PAMELA ProcessorSharingMonitor NOTHING TO RESUME resuming just suspended "+finishedSuspendingContainer.container.getContainerId());
+                           pendingResumeUpdateRequestId = resumeContainer(finishedSuspendingContainer.container, finishedSuspendingContainer.container.getResource());
+                           pendingResumeContainer = finishedSuspendingContainer;                           
+                        }
+                     } else {
+                        timeLeftProcessorSharingInterval = processorSharingInterval;
+                     }
+                     suspendedContainers.add(finishedSuspendingContainer);
 
-	    			 } else { 
-	    				if (!needToResume) { // it was a container suspended after adding another
-	    					LOG.info("PAMELA ProcessorSharingMonitor "+ pendingSuspendContainer.container.getContainerId()+" SUSPEND FAILED going to retry");
-	    					synchronized (containersToSuspendList) {
-							   containersToSuspendList.add(pendingSuspendContainer);
-							   additionalSleepForLaunching = 1000;
-							   pendingSuspendContainer = null;
-							   pendingSuspendUpdateRequestId = -1;
-							}
-	    				} else {// failed!!!
-	    					LOG.info("PAMELA ProcessorSharingMonitor "+ pendingSuspendContainer.container.getContainerId()+" SUSPEND FAILED ignore it and hope nothing crashes");
-						   pendingSuspendContainer = null;
-						   pendingSuspendUpdateRequestId = -1;	    					
-	    				}	    				
-	    			 }//if (statusPendingSuspend == 0) 
-	    		 }
-	    		continue;
-	    	 }
+                  } else {
+                     if (!needToResume) { // it was a container suspended after adding another
+                        LOG.info("PAMELA ProcessorSharingMonitor " + pendingSuspendContainer.container.getContainerId()
+                              + " SUSPEND FAILED going to retry");
+                        synchronized (containersToSuspendList) {
+                           containersToSuspendList.add(pendingSuspendContainer);
+                           additionalSleepForLaunching = 1000;
+                           pendingSuspendContainer = null;
+                           pendingSuspendUpdateRequestId = -1;
+                        }
+                     } else {// failed!!!
+                        LOG.info("PAMELA ProcessorSharingMonitor " + pendingSuspendContainer.container.getContainerId()
+                              + " SUSPEND FAILED ignore it and hope nothing crashes");
+                        pendingSuspendContainer = null;
+                        pendingSuspendUpdateRequestId = -1;
+                     }
+                  } // if (statusPendingSuspend == 0)
+               }
+               continue;
+            }
 	    	 
 	    	 // Check if pendingResume finished
 	    	 if (pendingResumeUpdateRequestId != -1) {

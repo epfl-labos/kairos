@@ -148,6 +148,8 @@ private long containerLaunchStartTime;
   private boolean recoveredAsKilled = false;
   
   protected boolean processorSharingEnabled;
+  protected boolean updateMemory;
+  protected boolean updateCpu;
   protected Map<Integer,Integer> updateRequestsResults = new HashMap<Integer,Integer>();
 
   public ContainerImpl(Context context,Configuration conf, Dispatcher dispatcher,
@@ -172,6 +174,9 @@ private long containerLaunchStartTime;
     this.cpuCores  = cpuCores;
     this.context = context;
     this.processorSharingEnabled = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_ENABLE, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_ENABLE);
+    this.updateMemory = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_UPDATE_MEMORY, YarnConfiguration.DEFAULT_NM_PROCESSOR_UPDATE_MEMORY);
+    this.updateCpu = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_UPDATE_CPU, YarnConfiguration.DEFAULT_NM_PROCESSOR_UPDATE_CPU);
+    
     stateMachine = stateMachineFactory.make(this);
   }
 
@@ -1064,106 +1069,111 @@ public void run(){
   
 
 public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) {
-	  //if this is a resumed container
-	  boolean resumed = nodeContainerUpdate.getResume();
-	  boolean quotaFreeze = false;
-	  //we first update cpu cores
-	  Integer targetCores = (int) Math.ceil(nodeContainerUpdate.getCores());
-	  //then we update resource requirement, first we update cpu set
-	  Set<Integer> cores = context.getCoresManager().resetCores(containerId,targetCores);
-	  int updateRequestId = nodeContainerUpdate.getUpdateRequestID();
-	  
-	  LOG.info("node container "+containerId+" update cores "+cores + " updateRequestId "+updateRequestId+" memory target "+nodeContainerUpdate.getMemory()+ " current memory "+currentResource.getMemory());
-	  //all cores are preempted
-	  if(cores.size() == 0){
-	      //in this case, we run the docker on core 0
-		  cores.add(0);
-	      //we will not resume its all capacity
-		  quotaFreeze = true;
-	  }
-	  
-	  synchronized(cpuUpdateActorList){
-		   //then update cpuset
-		   if(cpuUpdateActorList.size( )> 0){
-			  cpuUpdateActorList.clear();
-		    }
-		   cpuUpdateActorList.add(new Pair<Integer,Set<Integer>>(updateRequestId,cores));
-			// ProcessorSharing, we need to use a fraction of the CPU
-		   synchronized(cpuFractionUpdateActorList){
-			   LOG.info("PAMELA container "+containerId+" adding fraction of cores to be "+nodeContainerUpdate.getCores());
-			   if(cpuFractionUpdateActorList.size( )> 0){
-				   cpuFractionUpdateActorList.clear();
-			   }
-			   cpuFractionUpdateActorList.add(new Pair<Integer,Double>(updateRequestId,nodeContainerUpdate.getCores()));
-		   }
-	   }
-	  
-	  //we then update cpuset, we only free container when all the resource has been deprived
-	  if(quotaFreeze){
-		 synchronized(quotaUpdateActorList){	
-			 //first check the quota list if it is empty
-			 if(quotaUpdateActorList.size() > 0){
-				 quotaUpdateActorList.clear();
-			  }
-			  quotaUpdateActorList.add(new Pair<Integer,Integer>(updateRequestId,1000));
-		  }
-	  }else if(resumed){
-		  synchronized(quotaUpdateActorList){	
-				 //first check the quota list if it is empty
-				 if(quotaUpdateActorList.size() > 0){
-					 quotaUpdateActorList.clear();
-		          }
-				  quotaUpdateActorList.add(new Pair<Integer,Integer>(updateRequestId,-1));
-	      }
-	  }
-	  
-	  //we then update memory usage
-	  List<Pair<Integer,Integer>> toAdded = new ArrayList<Pair<Integer,Integer>>();
-	  Integer currentMemory = currentResource.getMemory();
-	  Integer targetMemory  = nodeContainerUpdate.getMemory();
-	  if(!targetMemory.equals(currentMemory)) {
-		  //the minimum memory for a container
-		  if(targetMemory < 128){
-			  targetMemory = 128;
-		  }
-		  
-		  if(targetMemory < currentMemory){
-			  if(!processorSharingEnabled)
-			  while(currentMemory > targetMemory){
-				  
-				  if(currentMemory > 1024){  
-					  currentMemory -= 1024;
-				  }else{
-					  currentMemory /=2;
-				  }
-				  
-				toAdded.add(new Pair<Integer,Integer>(updateRequestId,currentMemory));
-			  }
-			 toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
-			 //LOG.info("node container update memory "+targetMemory);
-			  
-		  }else{
-			toAdded.add(new Pair<Integer,Integer>(updateRequestId,targetMemory));
-			//LOG.info("node container update memory "+targetMemory);
-		  }
-		  
-	   synchronized(memoryUpdateActorList){
-			   //finally we update memory
-	        if(memoryUpdateActorList.size() > 0){
-			    memoryUpdateActorList.clear();
-			 }
-	        LOG.info("PAMELA container "+ getContainerId()+" update memory "+toAdded+" state is "+stateMachine.getCurrentState()+" resumed? "+resumed);
-	        memoryUpdateActorList.addAll(toAdded);
-        }
-	  } else {
-		  LOG.info("PAMELA container "+ getContainerId()+" not updating memory");
-	  }
-   synchronized(updateRequestsResults) {
-	   LOG.info("PAMELA container "+ getContainerId()+" initializing updaterequestresult for update "+nodeContainerUpdate.getUpdateRequestID()+" to -1");
-	   updateRequestsResults.put(nodeContainerUpdate.getUpdateRequestID(), -1);
+         // if this is a resumed container
+         boolean resumed = nodeContainerUpdate.getResume();
+         boolean quotaFreeze = false;
+         int updateRequestId = nodeContainerUpdate.getUpdateRequestID();
+
+         if (updateCpu) {
+            // we first update cpu cores
+            Integer targetCores = (int) Math.ceil(nodeContainerUpdate.getCores());
+            // then we update resource requirement, first we update cpu set
+            Set<Integer> cores = context.getCoresManager().resetCores(containerId, targetCores);
+
+            LOG.info("node container " + containerId + " update cores " + cores + " updateRequestId " + updateRequestId + " memory target "
+                  + nodeContainerUpdate.getMemory() + " current memory " + currentResource.getMemory());
+            // all cores are preempted
+            if (cores.size() == 0) {
+               // in this case, we run the docker on core 0
+               cores.add(0);
+               // we will not resume its all capacity
+               quotaFreeze = true;
+            }
+
+            synchronized (cpuUpdateActorList) {
+               // then update cpuset
+               if (cpuUpdateActorList.size() > 0) {
+                  cpuUpdateActorList.clear();
+               }
+               cpuUpdateActorList.add(new Pair<Integer, Set<Integer>>(updateRequestId, cores));
+               // ProcessorSharing, we need to use a fraction of the CPU
+               synchronized (cpuFractionUpdateActorList) {
+                  LOG.info("PAMELA container " + containerId + " adding fraction of cores to be " + nodeContainerUpdate.getCores());
+                  if (cpuFractionUpdateActorList.size() > 0) {
+                     cpuFractionUpdateActorList.clear();
+                  }
+                  cpuFractionUpdateActorList.add(new Pair<Integer, Double>(updateRequestId, nodeContainerUpdate.getCores()));
+               }
+            }
+
+            // we then update cpuset, we only free container when all the resource has been deprived
+            if (quotaFreeze) {
+               synchronized (quotaUpdateActorList) {
+                  // first check the quota list if it is empty
+                  if (quotaUpdateActorList.size() > 0) {
+                     quotaUpdateActorList.clear();
+                  }
+                  quotaUpdateActorList.add(new Pair<Integer, Integer>(updateRequestId, 1000));
+               }
+            } else if (resumed) {
+               synchronized (quotaUpdateActorList) {
+                  // first check the quota list if it is empty
+                  if (quotaUpdateActorList.size() > 0) {
+                     quotaUpdateActorList.clear();
+                  }
+                  quotaUpdateActorList.add(new Pair<Integer, Integer>(updateRequestId, -1));
+               }
+            }
+         }
+         
+         // we then update memory usage
+         if (updateMemory) {
+            List<Pair<Integer, Integer>> toAdded = new ArrayList<Pair<Integer, Integer>>();
+            Integer currentMemory = currentResource.getMemory();
+            Integer targetMemory = nodeContainerUpdate.getMemory();
+            // the minimum memory for a container
+            if (targetMemory < 128) {
+               targetMemory = 128;
+            }
+
+            if (targetMemory < currentMemory) {
+               if (!processorSharingEnabled)
+                  while (currentMemory > targetMemory) {
+
+                     if (currentMemory > 1024) {
+                        currentMemory -= 1024;
+                     } else {
+                        currentMemory /= 2;
+                     }
+
+                     toAdded.add(new Pair<Integer, Integer>(updateRequestId, currentMemory));
+                  }
+               toAdded.add(new Pair<Integer, Integer>(updateRequestId, targetMemory));
+               // LOG.info("node container update memory "+targetMemory);
+
+            } else {
+               toAdded.add(new Pair<Integer, Integer>(updateRequestId, targetMemory));
+               // LOG.info("node container update memory "+targetMemory);
+            }
+
+            synchronized (memoryUpdateActorList) {
+               // finally we update memory
+               if (memoryUpdateActorList.size() > 0) {
+                  memoryUpdateActorList.clear();
+               }
+               LOG.info("PAMELA container " + getContainerId() + " update memory " + toAdded + " state is " + stateMachine.getCurrentState()
+                     + " resumed? " + resumed);
+               memoryUpdateActorList.addAll(toAdded);
+            }
+         }
+         
+         synchronized (updateRequestsResults) {
+            LOG.info("PAMELA container " + getContainerId() + " initializing updaterequestresult for update "
+                  + nodeContainerUpdate.getUpdateRequestID() + " to -1");
+            updateRequestsResults.put(nodeContainerUpdate.getUpdateRequestID(), -1);
+         }
+      }
    }
-  }
-}
 
   private void ProcessResourceUpdate(NodeContainerUpdate nodeContainerUpdate){
 	  LOG.info("process resource update: container  "+getContainerId()+" cores "+nodeContainerUpdate.getCores()+" memory "+nodeContainerUpdate.getMemory());
