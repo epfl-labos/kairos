@@ -267,7 +267,7 @@ public class ContainerManagerImpl extends CompositeService implements
         double minimumCpu = conf.getDouble(YarnConfiguration.NM_PROCESSOR_SHARING_MINIMUM_CPU, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_MINIMUM_CPU);
         // Concurrent containers should be calculated based on the total resources of a node and the size of the containers. IDEALLY DYNAMIC
         int maximumConcurrentContainers = conf.getInt(YarnConfiguration.NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS);
-        this.processorSharingMonitor = new ProcessorSharingMonitor(context, this.processorSharingWindow, processorSharingFineGrainedInterval, minimumMemory, minimumCpu, maximumConcurrentContainers);
+        this.processorSharingMonitor = new ProcessorSharingMonitor(this.processorSharingWindow, processorSharingFineGrainedInterval, minimumMemory, minimumCpu, maximumConcurrentContainers);
     }
     super.serviceInit(conf);
     recover();
@@ -766,8 +766,10 @@ public class ContainerManagerImpl extends CompositeService implements
         startContainerInternal(nmTokenIdentifier, containerTokenIdentifier,
           request);
         LOG.info("PAMELA is this container attemptId "+ containerId+" is an AM container? "+containerId.getContainerId()+ "==1?");
-        if(containerId.getContainerId() != 1 && this.processorSharingEnabled)
-        	this.processorSharingMonitor.addContainer(containerId);
+        if(containerId.getContainerId() != 1 && this.processorSharingEnabled) {
+         Container newContainer = context.getContainers().get(containerId); 
+        	this.processorSharingMonitor.addContainer(newContainer);
+        }
         succeededContainers.add(containerId);
       } catch (YarnException e) {
         failedContainers.put(containerId, SerializedException.newInstance(e));
@@ -1178,34 +1180,24 @@ public class ContainerManagerImpl extends CompositeService implements
       Queue<ProcessorSharingContainer> containersToSuspendList = new LinkedList<ProcessorSharingContainer>();
       long processorSharingInterval;
       int fineGrainedMonitorInterval;
-      Context context;
       boolean running;
       double minimumCpu;
       int minimumMemory;
       int maximumConcurrentContainers;
-      int pendingSuspendUpdateRequestId;
-      ProcessorSharingContainer pendingSuspendContainer;
       Map<Integer,ProcessorSharingContainer> pendingSuspendContainers = new HashMap<Integer,ProcessorSharingContainer>();
-      int pendingResumeUpdateRequestId;
-      ProcessorSharingContainer pendingResumeContainer;
       Map<Integer,ProcessorSharingContainer> pendingResumeContainers = new HashMap<Integer,ProcessorSharingContainer>();
       boolean needToResume;
       AtomicInteger lastRequestID;
 
-      public ProcessorSharingMonitor(Context context, long processorSharingInterval, int fineGrainedMonitorInterval, int minimumMemory,
+      public ProcessorSharingMonitor(long processorSharingInterval, int fineGrainedMonitorInterval, int minimumMemory,
             double minimumCpu, int maximumConcurrentContainers) {
          LOG.info("PAMELA ProcessorSharingMonitor created");
          this.processorSharingInterval = processorSharingInterval;
-         this.context = context;
          this.running = true;
          this.fineGrainedMonitorInterval = fineGrainedMonitorInterval;
          this.minimumCpu = minimumCpu; // 1;//0.001;
          this.minimumMemory = minimumMemory;
          this.maximumConcurrentContainers = maximumConcurrentContainers;
-         this.pendingSuspendUpdateRequestId = -1;
-         this.pendingSuspendContainer = null;
-         this.pendingResumeUpdateRequestId = -1;
-         this.pendingResumeContainer = null;
          this.needToResume = false;
          this.lastRequestID = new AtomicInteger(-1);
       }
@@ -1245,31 +1237,25 @@ public class ContainerManagerImpl extends CompositeService implements
             if (delay >= 0)
                delay += fineGrainedMonitorInterval;
 
-            LOG.info("PAMELA ProcessorSharingMonitor DEBUG timeLeftPSInterval " + timeLeftProcessorSharingInterval);/* + " pendingSuspend "                  
-                  + (pendingSuspendContainer != null ? pendingSuspendContainer.container.getContainerId() : " none") + " suspendRequestId "
-                  + pendingSuspendUpdateRequestId + " pendingResume "
-                  + (pendingResumeContainer != null ? pendingResumeContainer.container.getContainerId() : " none") + " resumeRequestId "
-                  + pendingResumeUpdateRequestId);*/
+            LOG.info("PAMELA ProcessorSharingMonitor DEBUG timeLeftPSInterval " + timeLeftProcessorSharingInterval);
 
             printContainers(containersToSuspendList, "BEFORE containerToSuspend");
             printContainers(currentlyExecutingContainers, "BEFORE currentlyExecuting");
             printContainers(suspendedContainers, "BEFORE suspended");
-            LOG.info("PAMELA ProcessorSharingMonitor going to list pendingSuspendContainer, size "+pendingSuspendContainers.size());
             printContainers(new LinkedList<ProcessorSharingContainer>(pendingSuspendContainers.values()), "BEFORE pendingSuspendContainer");
             printContainers(new LinkedList<ProcessorSharingContainer>(pendingResumeContainers.values()), "BEFORE pendingResumeContainer");
 
             // To check what happens when adding a new container
             synchronized (containersToSuspendList) {
-               if (containersToSuspendList.size() > 0 && pendingSuspendUpdateRequestId == -1) { 
+               if (containersToSuspendList.size() > 0 && pendingSuspendContainers.size() == 0) { 
                   // TODO case where we have more than one
                   LOG.info("PAMELA ProcessorSharingMonitor suspend after adding, additionalSleepForLaunching " + additionalSleepForLaunching);
                   // Try to suspend from toSuspendList
                   ProcessorSharingContainer pendingSuspend = containersToSuspendList.poll();
                   assert (!containerExiting(pendingSuspend.container.getContainerState()));
                   if (pendingSuspend.container.getWasLaunched() && !containerExiting(pendingSuspend.container.getContainerState())) {
-                     pendingSuspendUpdateRequestId = suspendContainer(pendingSuspend.container);
-                     pendingSuspendContainer = pendingSuspend;
-                     pendingSuspendContainers.put(pendingSuspendUpdateRequestId,pendingSuspend);
+                     int pendingSuspendUpdateRequestId = suspendContainer(pendingSuspend.container);
+                     pendingSuspendContainers.put(pendingSuspendUpdateRequestId, pendingSuspend);
                      LOG.info("PAMELA ProcessorSharingMonitor added to pendingSuspendContainers "+ pendingSuspendContainers.get(pendingSuspendUpdateRequestId).containerId);
 
                      additionalSleepForLaunching = 0;
@@ -1283,80 +1269,80 @@ public class ContainerManagerImpl extends CompositeService implements
                   continue; // Skip the rest and go to sleep
                }
             }
-            // TODO ages!
+            // TODO check ages!
             // Check if pendingSuspend finished
-            if (pendingSuspendUpdateRequestId != -1) {
-               LOG.info("PAMELA ProcessorSharingMonitor checking pending suspend " + pendingSuspendUpdateRequestId);
-               assert (pendingResumeUpdateRequestId == -1);
-               // TODO maybe do the same as pending resume in case container is
-               // null
-               int statusPendingSuspend = pendingSuspendContainer.container.getUpdateRequestResult(pendingSuspendUpdateRequestId);
-               if (statusPendingSuspend > -1) {
-                  if (statusPendingSuspend == 0) { // SUCCEEDED SUSPENDING
-                     // Cleanup data structures
-                     LOG.info("PAMELA ProcessorSharingMonitor FINISHED suspending " + pendingSuspendContainer.container.getContainerId()
-                           + " suspendRequestId " + pendingSuspendUpdateRequestId + " needToResume " + needToResume);
-                     ProcessorSharingContainer finishedSuspendingContainer = new ProcessorSharingContainer(pendingSuspendContainer);
-                     pendingSuspendContainer.suspend();
-                     LOG.info("PAMELA ProcessorSharingMonitor removing from pendingSuspendContainers "+ pendingSuspendContainers.get(pendingSuspendUpdateRequestId).containerId);
-                     pendingSuspendContainers.remove(pendingSuspendUpdateRequestId);
+            if (pendingSuspendContainers.size() > 0) {
+               for (Integer pendingSuspendUpdateRequestId : pendingSuspendContainers.keySet()) {
+                  // TODO maybe do the same as pending resume in case container is null? // shouldnt be because
+                  ProcessorSharingContainer pendingSuspendContainer = pendingSuspendContainers.get(pendingSuspendUpdateRequestId);
+                  int statusPendingSuspend = pendingSuspendContainer.container.getUpdateRequestResult(pendingSuspendUpdateRequestId);
+                  LOG.info("PAMELA ProcessorSharingMonitor checking pending suspend " + pendingSuspendContainer.container.getContainerId()+" status "+statusPendingSuspend);
+                  if (statusPendingSuspend > -1) {
+                     if (statusPendingSuspend == 0) { // SUCCEEDED SUSPENDING
+                        // Cleanup data structures
+                        LOG.info("PAMELA ProcessorSharingMonitor FINISHED suspending " + pendingSuspendContainer.container.getContainerId()
+                              + " suspendRequestId " + pendingSuspendUpdateRequestId + " needToResume " + needToResume);
+                        ProcessorSharingContainer finishedSuspendingContainer = new ProcessorSharingContainer(pendingSuspendContainer);
+                        pendingSuspendContainer.suspend();
+                        LOG.info("PAMELA ProcessorSharingMonitor removing from pendingSuspendContainers "
+                              + pendingSuspendContainers.get(pendingSuspendUpdateRequestId).containerId);
+                        pendingSuspendContainers.remove(pendingSuspendUpdateRequestId);
 
-                     pendingSuspendUpdateRequestId = -1;
-                     pendingSuspendContainer = null;
+                        pendingSuspendContainer = null;
 
-                     if (needToResume) {
-                        ProcessorSharingContainer resumeContainer = suspendedContainers.poll();
-                        // RESUME suspendedContainer
-                        pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
-                        pendingResumeContainer = resumeContainer;
-                        pendingResumeContainers.put(pendingResumeUpdateRequestId,resumeContainer);
+                        if (needToResume) {
+                           ProcessorSharingContainer resumeContainer = suspendedContainers.poll();
+                           // RESUME suspendedContainer
+                           int pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
+                           pendingResumeContainers.put(pendingResumeUpdateRequestId, resumeContainer);
+                        } else 
+                           timeLeftProcessorSharingInterval = processorSharingInterval;
+                        
+                        suspendedContainers.add(finishedSuspendingContainer);
+
                      } else {
-                        timeLeftProcessorSharingInterval = processorSharingInterval;
-                     }
-                     suspendedContainers.add(finishedSuspendingContainer);
-
-                  } else {
-                     if (!needToResume) { // it was a container suspended after
-                                          // adding another
-                        LOG.info("PAMELA ProcessorSharingMonitor " + pendingSuspendContainer.container.getContainerId()
-                              + " SUSPEND FAILED going to retry");
-                        synchronized (containersToSuspendList) {
-                           containersToSuspendList.add(pendingSuspendContainer);
-                           additionalSleepForLaunching = 1000;
+                        if (!needToResume) { // it was a container suspended after
+                                             // adding another
+                           LOG.info("PAMELA ProcessorSharingMonitor " + pendingSuspendContainer.container.getContainerId()
+                                 + " SUSPEND FAILED going to retry");
+                           synchronized (containersToSuspendList) {
+                              containersToSuspendList.add(pendingSuspendContainer);
+                              additionalSleepForLaunching = 1000;
+                           }
+                        } else {// failed!!!
+                           LOG.info("PAMELA ProcessorSharingMonitor " + pendingSuspendContainer.container.getContainerId()
+                                 + " SUSPEND FAILED ignore it and hope nothing crashes");
                         }
-                     } else {// failed!!!
-                        LOG.info("PAMELA ProcessorSharingMonitor " + pendingSuspendContainer.container.getContainerId()
-                              + " SUSPEND FAILED ignore it and hope nothing crashes");
-                     }
-                     pendingSuspendContainers.remove(pendingSuspendUpdateRequestId);
-                     pendingSuspendContainer = null;
-                     pendingSuspendUpdateRequestId = -1;
-                  } // if (statusPendingSuspend == 0)
+                        pendingSuspendContainers.remove(pendingSuspendUpdateRequestId);
+                        pendingSuspendContainer = null;
+                        pendingSuspendUpdateRequestId = -1;
+                     } // if (statusPendingSuspend == 0)
+                  }
                }
                continue;
             }
 
             // Check if pendingResume finished
-            if (pendingResumeUpdateRequestId != -1) {
-               LOG.info("PAMELA ProcessorSharingMonitor checking pending resume " + pendingResumeUpdateRequestId);
-               assert (pendingSuspendUpdateRequestId == -1);
-               assert (pendingResumeContainer.container != null);
-               int statusPendingResume = pendingResumeContainer.container.getUpdateRequestResult(pendingResumeUpdateRequestId);
-               if (statusPendingResume > -1) {
-                  if (statusPendingResume == 0) {
-                     // Cleanup data structures
-                     LOG.info("PAMELA ProcessorSharingMonitor FINISHED resuming " + pendingResumeContainer.container.getContainerId()
-                           + " resumeRequestId " + pendingResumeUpdateRequestId + " total PS delay " + delay);
-                     pendingResumeContainer.resume();
-                     currentlyExecutingContainers.add(pendingResumeContainer);
-                     pendingResumeContainers.remove(pendingResumeUpdateRequestId);
-                     pendingResumeContainer = null;
-                     pendingResumeUpdateRequestId = -1;
+            if (pendingResumeContainers.size() > 0) {
+               for (Integer pendingResumeUpdateRequestId : pendingResumeContainers.keySet()) {
+                  ProcessorSharingContainer pendingResumeContainer = pendingResumeContainers.get(pendingResumeUpdateRequestId);
+                  int statusPendingResume = pendingResumeContainer.container.getUpdateRequestResult(pendingResumeUpdateRequestId);
+                  LOG.info("PAMELA ProcessorSharingMonitor checking pending resume " + pendingResumeContainer.container.getContainerId()+" status "+statusPendingResume);
+                  if (statusPendingResume > -1) {
+                     if (statusPendingResume == 0) {
+                        // Cleanup data structures
+                        LOG.info("PAMELA ProcessorSharingMonitor FINISHED resuming " + pendingResumeContainer.container.getContainerId()
+                              + " resumeRequestId " + pendingResumeUpdateRequestId + " total PS delay " + delay);
+                        pendingResumeContainer.resume();
+                        currentlyExecutingContainers.add(pendingResumeContainer);
+                        pendingResumeContainers.remove(pendingResumeUpdateRequestId);
+                        pendingResumeContainer = null;
 
-                     // RESET time counters
-                     timeLeftProcessorSharingInterval = processorSharingInterval;
-                     delay = -1;
-                  } // else failed!!!
+                        // RESET time counters
+                        timeLeftProcessorSharingInterval = processorSharingInterval;
+                        delay = -1;
+                     } // else failed!!!
+                  }
                }
                continue;
             }
@@ -1364,43 +1350,42 @@ public class ContainerManagerImpl extends CompositeService implements
             // PS window finished
             if (timeLeftProcessorSharingInterval == 0) {
                if (suspendedContainers.size() > 0) {
-                  assert (containersToSuspendList.size() == 0);
-                  // SUSPEND executing container
-                  if (currentlyExecutingContainers.size() > 0) {
-                     ProcessorSharingContainer suspendContainer = currentlyExecutingContainers.poll();
-                     assert (!containerExiting(suspendContainer.container.getContainerState()));
-                     LOG.info("PAMELA ProcessorSharingMonitor STARTING PS " + suspendContainer.container.getContainerId() + " age "
-                           + suspendContainer.age + " state " + suspendContainer.container.getContainerState());
-                     pendingSuspendUpdateRequestId = suspendContainer(suspendContainer.container);
-                     pendingSuspendContainer = suspendContainer;
-                     pendingSuspendContainers.put(pendingSuspendUpdateRequestId,suspendContainer);
-                     LOG.info("PAMELA ProcessorSharingMonitor added to pendingSuspendContainers "+ pendingSuspendContainers.get(pendingSuspendUpdateRequestId).containerId);
-                     needToResume = true;
-                  } else { // else then resume
-                     // TODO check for multiple containers at once
-                     ProcessorSharingContainer resumeContainer = suspendedContainers.poll();
-                     LOG.info("PAMELA ProcessorSharingMonitor FINISHED PS nothing to suspend, resuming container "
-                           + resumeContainer.container.getContainerId());
-                     // RESUME suspendedContainer
-                     pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
-                     pendingResumeContainer = resumeContainer;
-                     pendingResumeContainers.put(pendingResumeUpdateRequestId, resumeContainer);
-                     delay = 0;
-                     needToResume = false;
+                  for (ProcessorSharingContainer resumeContainer : suspendedContainers) {// if (suspendedContainers.size() > 0) { //check ages
+                     // SUSPEND executing container
+                     if (currentlyExecutingContainers.size() > 0) {
+                        ProcessorSharingContainer suspendContainer = currentlyExecutingContainers.poll();
+                        assert (!containerExiting(suspendContainer.container.getContainerState()));
+                        LOG.info("PAMELA ProcessorSharingMonitor STARTING PS " + suspendContainer.container.getContainerId() + " age "
+                              + suspendContainer.age + " state " + suspendContainer.container.getContainerState());
+                        int pendingSuspendUpdateRequestId = suspendContainer(suspendContainer.container);
+                        pendingSuspendContainers.put(pendingSuspendUpdateRequestId, suspendContainer);
+                        LOG.info("PAMELA ProcessorSharingMonitor added to pendingSuspendContainers "
+                              + pendingSuspendContainers.get(pendingSuspendUpdateRequestId).containerId);
+                        needToResume = true;
+                     } else { // else then resume
+                        // TODO check for multiple containers at once
+                        suspendedContainers.remove(resumeContainer);
+                        LOG.info("PAMELA ProcessorSharingMonitor FINISHED PS nothing to suspend, resuming container "
+                              + resumeContainer.container.getContainerId());
+                        // RESUME suspendedContainer
+                        int pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
+                        pendingResumeContainers.put(pendingResumeUpdateRequestId, resumeContainer);
+                        delay = 0;
+                        needToResume = false;
+                     }
                   }
                } else {
                   timeLeftProcessorSharingInterval = this.processorSharingInterval;
                }
             } // if (timeLeftProcessorSharingInterval == 0)
 
-            if (resumeExtra > 0 && pendingResumeUpdateRequestId == -1 && suspendedContainers.size() > 0) { 
+            if (resumeExtra > 0 && pendingResumeContainers.size() == 0 && suspendedContainers.size() > 0) { 
                // apparently we need to resume another container?
                LOG.info("PAMELA ProcessorSharingMonitor RESUME EXTRA apparently because of cleaning");
                ProcessorSharingContainer resumeContainer = suspendedContainers.poll();
                assert (!containerExiting(resumeContainer.container.getContainerState()));
                // RESUME suspendedContainer
-               pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
-               pendingResumeContainer = resumeContainer;
+               int pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
                pendingResumeContainers.put(pendingResumeUpdateRequestId, resumeContainer);
                delay = 0;
                resumeExtra = 0; //TODO check for many containers?
@@ -1459,14 +1444,6 @@ public class ContainerManagerImpl extends CompositeService implements
          }
 
          // pending suspend
-         if (pendingSuspendUpdateRequestId != -1) {
-            if (pendingSuspendContainer.container == null || containerExiting(pendingSuspendContainer.container.getContainerState())) {
-               LOG.info("PAMELA ProcessorSharingMonitor CLEANUP suspendedContainers " + pendingSuspendContainer.containerId);
-               pendingSuspendUpdateRequestId = -1;
-               pendingSuspendContainer = null;
-               resume += 1;
-            }
-         }
          for (Integer pendingSuspendId : pendingSuspendContainers.keySet()) {
             ProcessorSharingContainer psContainer = pendingSuspendContainers.get(pendingSuspendId);
             if (psContainer.container == null || containerExiting(psContainer.container.getContainerState())) {
@@ -1476,12 +1453,6 @@ public class ContainerManagerImpl extends CompositeService implements
          }
 
          // pending resume
-         if (pendingResumeUpdateRequestId != -1) {
-            if (pendingResumeContainer.container == null || containerExiting(pendingResumeContainer.container.getContainerState())) {
-               LOG.info("PAMELA ProcessorSharingMonitor CLEANUP resumeContainers " + pendingResumeContainer.containerId);
-               resume += 1;
-            }
-         }
          for (Integer pendingResumeId : pendingResumeContainers.keySet()) {
             ProcessorSharingContainer psContainer = pendingResumeContainers.get(pendingResumeId);
             if (psContainer.container == null || containerExiting(psContainer.container.getContainerState())) {
@@ -1524,7 +1495,7 @@ public class ContainerManagerImpl extends CompositeService implements
          return updateRequestId;
       }
 
-      public void addContainer(ContainerId containerId) {
+      public void addContainer(Container newlyAddedContainer) {
          synchronized (currentlyExecutingContainers) {
             if (currentlyExecutingContainers.size() >= maximumConcurrentContainers) {
                ProcessorSharingContainer oldestCurrentlyExecutingContainer = currentlyExecutingContainers.poll();
@@ -1540,7 +1511,6 @@ public class ContainerManagerImpl extends CompositeService implements
               // maximumConcurrentContainers)
 
             // add currentlyExecutingContainer
-            Container newlyAddedContainer = this.context.getContainers().get(containerId);
             currentlyExecutingContainers.add(new ProcessorSharingContainer(newlyAddedContainer));
             LOG.info("PAMELA ProcessorSharingMonitor new container " + newlyAddedContainer.getContainerId() + " currentlyExecutingContainers "
                   + currentlyExecutingContainers.size());
