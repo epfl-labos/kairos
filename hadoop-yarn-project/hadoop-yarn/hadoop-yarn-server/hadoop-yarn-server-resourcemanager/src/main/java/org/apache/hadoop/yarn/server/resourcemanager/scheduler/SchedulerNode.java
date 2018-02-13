@@ -205,7 +205,7 @@ private final RMNode rmNode;
   
   
   public synchronized void registerCoresToContainer(ContainerId containerId, Set<Integer> cpuCores){
-	  LOG.info("register container:"+containerId+"cpuSet:"+cpuCores);
+	  LOG.info("register container:"+containerId+" cpuSet: "+cpuCores);
 	  this.containersToCores.put(containerId, cpuCores);
   }
 
