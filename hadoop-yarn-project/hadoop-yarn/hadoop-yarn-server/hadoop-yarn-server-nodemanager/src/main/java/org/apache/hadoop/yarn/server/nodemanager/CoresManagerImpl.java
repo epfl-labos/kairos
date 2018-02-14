@@ -2,7 +2,6 @@ package org.apache.hadoop.yarn.server.nodemanager;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,8 +19,8 @@ public class CoresManagerImpl implements CoresManager {
 	private Set<Integer> totalCores = new HashSet<Integer>();
 	
 	private Set<Integer> unUsedCores = new HashSet<Integer>();
-	
-	private Set<Integer> suspendedCores = new HashSet<Integer>();
+	private Integer reservedPSCore;
+	private boolean processorSharingEnabled;
 	
 	//should be initialized at start
 	private Map<Integer,Set<ContainerId>> coresToContainer = new HashMap<Integer,Set<ContainerId>>();
@@ -30,13 +29,19 @@ public class CoresManagerImpl implements CoresManager {
 
 	@Override
 	public void init(Configuration conf) {
-        //we get cores fisrt		
+        //we get cores first		
 		int virtualCores =
 		        conf.getInt(
 		            YarnConfiguration.NM_VCORES, YarnConfiguration.DEFAULT_NM_VCORES);
-
+      
+		processorSharingEnabled = conf.getBoolean(YarnConfiguration.NM_PROCESSOR_SHARING_ENABLE, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_ENABLE);
+		int i = 0;
+		if (processorSharingEnabled) {
+		   reservedPSCore = 0;
+		   i++;
+		}
          //we initialize the total cores and unused cores
-		for(int i=0;i<virtualCores;i++){
+		for(; i<virtualCores; i++){
 			totalCores.add(i);
 			unUsedCores.add(i);
 			Set<ContainerId> cntIdSet = new HashSet<ContainerId>();
@@ -83,16 +88,22 @@ public class CoresManagerImpl implements CoresManager {
 	}
 	
 	@Override
-	public synchronized Set<Integer> allocateCores(ContainerId cntId, int num){
-		
-		Set<Integer> returnedResults = this.getAvailableCores(num);
-		this.allcoateCoresforContainer(returnedResults, cntId);
+	public synchronized Set<Integer> allocateCores(ContainerId cntId, int num){		
+      LOG.info("PAMELA allocate " + num + " cores " + cntId + " totalCores " + totalCores + " unUsedCores " + unUsedCores + " coresToContainer "+ coresToContainer.values());
+      Set<Integer> returnedResults = new HashSet<Integer>();
+      if (processorSharingEnabled && unUsedCores.isEmpty())
+         returnedResults.add(reservedPSCore); // For launching phase use core 0 if 
+      else {
+	      returnedResults = this.getAvailableCores(num);      
+		   this.allocateCoresforContainer(returnedResults, cntId);
+      }
+      
 		LogOverlapWarning();
 		
 		return returnedResults;
 	}
 	
-	private void allcoateCoresforContainer(Set<Integer> cores,ContainerId cntId){
+	private void allocateCoresforContainer(Set<Integer> cores, ContainerId cntId){
 		
 		LOG.info("allocate cores: "+cores+" on container "+cntId);
 		
@@ -132,14 +143,12 @@ public class CoresManagerImpl implements CoresManager {
 		LOG.info("release cores: "+cores+" on container "+cntId);
 		
 		for(Integer core : cores){
-			if(coresToContainer.get(core).size() == 0){
-				unUsedCores.add(core);
-			}
-		}
-		
-		for(Integer core : cores){
 			coresToContainer.get(core).remove(cntId);
-		}
+         LOG.info("release " + core + " from " + cntId + " left " + coresToContainer.get(core));
+         if(coresToContainer.get(core).size() == 0){
+            unUsedCores.add(core);
+         }
+      }
 		
 		for(Integer core : cores){
 			//remove core one by one
@@ -151,7 +160,7 @@ public class CoresManagerImpl implements CoresManager {
 		    containerToCores.remove(cntId);
 		}
 		
-		LOG.info("release cpuset "+cores);
+		LOG.info("release cpuset "+cores + " unUsedCores " + unUsedCores);
 	}
 	
   @Override
@@ -159,59 +168,60 @@ public class CoresManagerImpl implements CoresManager {
 		Set<Integer> cores = this.containerToCores.get(cntId);
 		Set<Integer> returnedCores = new HashSet<Integer>();
 		
-	   //for a partially preempted container, its cores are null
-	  if(cores != null){
-	   if(num < cores.size()){
-		//find the core that is used least
-		for(int i=0; i<num; i++){
-			int min = Integer.MAX_VALUE;
-			Integer value = 0;
-			for(Integer core : cores){
-				if(returnedCores.contains(core)){
-					continue;
-				}
-				
-				if(coresToContainer.get(core).size() < min){
-					value = core;
-					min   = coresToContainer.get(core).size();
-				}
-			}
-			returnedCores.add(value);
-		}
-		//PAMELA TODO TEST!! If there are no cores to be removed (using a percentage of them = suspending) release the same
-		//remove cores to container mapping
-		/*Set<Integer> toRemoved=new HashSet<Integer>();
-		for(Integer core : cores){
-			if(returnedCores.contains(core)){
-				continue;
-			}
-			toRemoved.add(core);
-		}*/
-		LOG.info("PAMELA SUSPENSION? going to release cores "+cores+" on container "+cntId);
-		this.releaseCoresforContainer(cntId, cores);//toRemoved);
-					
-	//for num >= cores.size(), we need to give more cores to this container
-	}else{
-	   returnedCores.addAll(cores);	
-	   int required = num - cores.size();
-	   if(required > 0){
-		   Set<Integer> newAllocated = this.getAvailableCores(required);
-		   returnedCores.addAll(newAllocated);
-		   this.allcoateCoresforContainer(newAllocated, cntId);
-	   }
-	   
-	}
- 
- //for a fully preempted container
- }else{
-	 Set<Integer> newAllocated = this.getAvailableCores(num);
-	 returnedCores.addAll(newAllocated);
-	 this.allcoateCoresforContainer(newAllocated, cntId);
- }
-	
-	LOG.info("get reset cores "+returnedCores);
-	return returnedCores;
-}
+      // for a partially preempted container, its cores are null
+      if (cores != null) {
+         if (num < cores.size()) {
+            // find the core that is used least
+            for (int i = 0; i < num; i++) {
+               int min = Integer.MAX_VALUE;
+               Integer value = 0;
+               for (Integer core : cores) {
+                  if (returnedCores.contains(core)) {
+                     continue;
+                  }
+
+                  if (coresToContainer.get(core).size() < min) {
+                     value = core;
+                     min = coresToContainer.get(core).size();
+                  }
+               }
+               returnedCores.add(value);
+            }
+            // PAMELA If there are no cores to be removed (using a percentage of them = suspending) release the same
+            // remove cores to container mapping
+            Set<Integer> toRemoved = new HashSet<Integer>();
+            for (Integer core : cores) {
+               if (returnedCores.contains(core)) {
+                  continue;
+               }
+               toRemoved.add(core);
+            }
+            LOG.info("PAMELA SUSPEND " + cntId + " releasing cores " + toRemoved);
+            this.releaseCoresforContainer(cntId, toRemoved);
+
+            // for num >= cores.size(), we need to give more cores to this container
+         } else {
+            returnedCores.addAll(cores);
+            int required = num - cores.size();
+            if (required > 0) {
+               Set<Integer> newAllocated = this.getAvailableCores(required);
+               LOG.info("PAMELA RESUME " + cntId + " newAllocated " + newAllocated);
+               returnedCores.addAll(newAllocated);
+               this.allocateCoresforContainer(newAllocated, cntId);
+            }
+         }
+
+         // for a fully preempted container
+      } else {
+         Set<Integer> newAllocated = this.getAvailableCores(num);
+         LOG.info("PAMELA " + cntId + " resetCores " + cores + " newAllocated " + newAllocated);
+         returnedCores.addAll(newAllocated);
+         this.allocateCoresforContainer(newAllocated, cntId);
+      }
+
+      LOG.info("get reset cores " + returnedCores);
+      return returnedCores;
+   }
  
   private void LogOverlapWarning(){
 	  for(Integer core : this.coresToContainer.keySet()){

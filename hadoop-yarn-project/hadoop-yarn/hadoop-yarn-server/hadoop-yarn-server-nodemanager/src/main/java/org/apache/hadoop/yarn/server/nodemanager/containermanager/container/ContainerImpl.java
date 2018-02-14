@@ -984,89 +984,96 @@ private long containerLaunchStartTime;
 	 return 0;
    }
 
-@Override
-public void run(){
-	LOG.info("thread entered for container "+getContainerId()+" current state is "+stateMachine.getCurrentState());
-	
-	while(stateMachine.getCurrentState() == ContainerState.RUNNING){
-	  //LOG.info("thread loop for container "+getContainerId()+" memorysize "+memoryUpdateActorList.size()
-	  //		                                                +" cpusize "+cpuUpdateActorList.size());
-	  if(!processorSharingEnabled) {
-	  synchronized(quotaUpdateActorList){	
-	   //first check the quota list if it is empty
-	   if(quotaUpdateActorList.size() > 0){  
-		   Pair<Integer, Integer> quota = quotaUpdateActorList.poll();
-		   long startTime = System.currentTimeMillis();
-		   LOG.info("UPDATE START container "+getContainerId()+" quota "+quota);
-		   int successful = DockerCommandCpuQuota(quota.snd) == 0 ? 0 : 1;
-		   long millis = (System.currentTimeMillis()-startTime);
-		   LOG.info("UPDATE END container "+getContainerId()+" quota "+quota.snd+ " elapsed time millis "+millis+ " successful? " +(successful==0));
-		   synchronized (updateRequestsResults) {
-			   int oldUpdateRequestResults = updateRequestsResults.get(quota.fst);
-			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-			   LOG.info("updateRequestsResults updateRequestId "+ quota.fst  +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
-			   updateRequestsResults.put(quota.fst,newUpdateRequestResult);
-		   }
-		   continue;
-	    }
-	  }}
+      @Override
+      public void run() {
+         LOG.info("thread entered for container " + getContainerId() + " current state is " + stateMachine.getCurrentState());
+
+         while (stateMachine.getCurrentState() == ContainerState.RUNNING) {
+            // LOG.info("thread loop for container "+getContainerId()+" memorysize "+memoryUpdateActorList.size()
+            // +" cpusize "+cpuUpdateActorList.size());
+            if (!processorSharingEnabled) {
+               synchronized (quotaUpdateActorList) {
+                  // first check the quota list if it is empty
+                  if (quotaUpdateActorList.size() > 0) {
+                     Pair<Integer, Integer> quota = quotaUpdateActorList.poll();
+                     long startTime = System.currentTimeMillis();
+                     LOG.info("UPDATE START container " + getContainerId() + " quota " + quota);
+                     int successful = DockerCommandCpuQuota(quota.snd) == 0 ? 0 : 1;
+                     long millis = (System.currentTimeMillis() - startTime);
+                     LOG.info("UPDATE END container " + getContainerId() + " quota " + quota.snd + " elapsed time millis " + millis + " successful? "
+                           + (successful == 0));
+                     synchronized (updateRequestsResults) {
+                        int oldUpdateRequestResults = updateRequestsResults.get(quota.fst);
+                        int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful + oldUpdateRequestResults);
+                        LOG.info("updateRequestsResults updateRequestId " + quota.fst + " oldUpdateRequestResults " + oldUpdateRequestResults
+                              + " successful " + successful + " newUpdateRequestResult " + newUpdateRequestResult);
+                        updateRequestsResults.put(quota.fst, newUpdateRequestResult);
+                     }
+                     continue;
+                  }
+               }
+            }
 	  
-	  synchronized(cpuUpdateActorList){
-	   //then update cpuset
-	   if(cpuUpdateActorList.size( )> 0){
-		   synchronized(cpuFractionUpdateActorList) {
-			   //LOG.info("cpu size "+cpuUpdateActorList.size());
-			   Pair<Integer, Set<Integer>> cpuSet = cpuUpdateActorList.poll();
-			   Pair<Integer, Double> cpuFraction = cpuFractionUpdateActorList.poll();
-			   LOG.info("UPDATE START request "+cpuFraction.fst+" container "+getContainerId()+" cpuSet "+cpuSet.snd + " size "+cpuSet.snd.size()+" >= cpu fraction " + cpuFraction.snd);
-			   long startTime = System.currentTimeMillis();
-			   int successful = DockerCommandCpuSet(cpuSet.snd, cpuFraction.snd);
-			   long millis = (System.currentTimeMillis()-startTime);
-			   LOG.info("UPDATE END request "+cpuFraction.fst+" container "+getContainerId()+" cpuSet "+cpuSet.snd + " size "+cpuSet.snd.size()+ " elapsed time millis "+millis+ " successful? " +(successful==0));
-			   synchronized (updateRequestsResults) {
-				   int oldUpdateRequestResults = updateRequestsResults.get(cpuFraction.fst);
-				   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-				   LOG.info("container "+getContainerId()+" updateRequest "+ cpuFraction.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
-				   updateRequestsResults.put(cpuFraction.fst,newUpdateRequestResult);
-			   }
-			   continue;
-		   }
-	    }
-	  }
-	  
-	  synchronized(memoryUpdateActorList){
-	   //finally we update memory
-	   if(memoryUpdateActorList.size() > 0){
-		   LOG.info("memory size "+memoryUpdateActorList.size());
-		   Pair<Integer, Integer> memory = memoryUpdateActorList.poll();
-		   LOG.info("UPDATE START request "+memory.fst+" container "+getContainerId()+" memory "+memory.snd);
-		   long startTime = System.currentTimeMillis();
-		   int successful = DockerCommandMemory(memory.snd);
-		   long millis = (System.currentTimeMillis()-startTime);
-		   LOG.info("UPDATE END request "+memory.fst+" container "+getContainerId()+" memory "+memory.snd+ " elapsed time millis "+millis+ " successful? " +(successful==0));
-		   synchronized (updateRequestsResults) {
-			   int oldUpdateRequestResults = updateRequestsResults.get(memory.fst);
-			   int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful+oldUpdateRequestResults);
-			   LOG.info("container "+getContainerId()+ " updateRequestId "+ memory.fst +" oldUpdateRequestResults "+oldUpdateRequestResults+" successful "+successful+" newUpdateRequestResult "+newUpdateRequestResult);
-			   updateRequestsResults.put(memory.fst,newUpdateRequestResult);
-		   }
-		   continue;
-	   }
-	 }
-	  try {
-		  if (processorSharingEnabled)
-		    Thread.sleep(50);
-		  else
-		    Thread.sleep(3000);
-			  
-		} catch (InterruptedException e) {
-		    e.printStackTrace();
-		}
-	}
-	
-	LOG.info("thread ended for container "+getContainerId()+" the final state is "+stateMachine.getCurrentState());
-}  
-  
+            synchronized (cpuUpdateActorList) {
+               // then update cpuset
+               if (cpuUpdateActorList.size() > 0) {
+                  synchronized (cpuFractionUpdateActorList) {
+                     // LOG.info("cpu size "+cpuUpdateActorList.size());
+                     Pair<Integer, Set<Integer>> cpuSet = cpuUpdateActorList.poll();
+                     Pair<Integer, Double> cpuFraction = cpuFractionUpdateActorList.poll();
+                     LOG.info("UPDATE START request " + cpuFraction.fst + " container " + getContainerId() + " cpuSet " + cpuSet.snd + " size "
+                           + cpuSet.snd.size() + " >= cpu fraction " + cpuFraction.snd);
+                     long startTime = System.currentTimeMillis();
+                     int successful = DockerCommandCpuSet(cpuSet.snd, cpuFraction.snd);
+                     long millis = (System.currentTimeMillis() - startTime);
+                     LOG.info("UPDATE END request " + cpuFraction.fst + " container " + getContainerId() + " cpuSet " + cpuSet.snd + " size "
+                           + cpuSet.snd.size() + " elapsed time millis " + millis + " successful? " + (successful == 0));
+                     synchronized (updateRequestsResults) {
+                        int oldUpdateRequestResults = updateRequestsResults.get(cpuFraction.fst);
+                        int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful + oldUpdateRequestResults);
+                        LOG.info("container " + getContainerId() + " updateRequest " + cpuFraction.fst + " oldUpdateRequestResults "
+                              + oldUpdateRequestResults + " successful " + successful + " newUpdateRequestResult " + newUpdateRequestResult);
+                        updateRequestsResults.put(cpuFraction.fst, newUpdateRequestResult);
+                     }
+                     continue;
+                  }
+               }
+            }
+
+            synchronized (memoryUpdateActorList) {
+               // finally we update memory
+               if (memoryUpdateActorList.size() > 0) {
+                  LOG.info("memory size " + memoryUpdateActorList.size());
+                  Pair<Integer, Integer> memory = memoryUpdateActorList.poll();
+                  LOG.info("UPDATE START request " + memory.fst + " container " + getContainerId() + " memory " + memory.snd);
+                  long startTime = System.currentTimeMillis();
+                  int successful = DockerCommandMemory(memory.snd);
+                  long millis = (System.currentTimeMillis() - startTime);
+                  LOG.info("UPDATE END request " + memory.fst + " container " + getContainerId() + " memory " + memory.snd + " elapsed time millis "
+                        + millis + " successful? " + (successful == 0));
+                  synchronized (updateRequestsResults) {
+                     int oldUpdateRequestResults = updateRequestsResults.get(memory.fst);
+                     int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful + oldUpdateRequestResults);
+                     LOG.info("container " + getContainerId() + " updateRequestId " + memory.fst + " oldUpdateRequestResults "
+                           + oldUpdateRequestResults + " successful " + successful + " newUpdateRequestResult " + newUpdateRequestResult);
+                     updateRequestsResults.put(memory.fst, newUpdateRequestResult);
+                  }
+                  continue;
+               }
+            }
+            try {
+               if (processorSharingEnabled)
+                  Thread.sleep(50);
+               else
+                  Thread.sleep(3000);
+
+            } catch (InterruptedException e) {
+               e.printStackTrace();
+            }
+         }
+
+         LOG.info("thread ended for container " + getContainerId() + " the final state is " + stateMachine.getCurrentState());
+      }  
 
 public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) {
          // if this is a resumed container
@@ -1076,7 +1083,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
 
          if (updateCpu) {
             // we first update cpu cores
-            Integer targetCores = (int) Math.ceil(nodeContainerUpdate.getCores());
+            Integer targetCores = (int) Math.floor(nodeContainerUpdate.getCores());
             // then we update resource requirement, first we update cpu set
             Set<Integer> cores = context.getCoresManager().resetCores(containerId, targetCores);
 
