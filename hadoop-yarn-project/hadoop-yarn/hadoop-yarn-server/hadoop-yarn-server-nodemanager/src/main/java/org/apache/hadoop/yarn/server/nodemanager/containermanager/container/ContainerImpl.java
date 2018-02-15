@@ -1021,13 +1021,11 @@ private long containerLaunchStartTime;
                      // LOG.info("cpu size "+cpuUpdateActorList.size());
                      Pair<Integer, Set<Integer>> cpuSet = cpuUpdateActorList.poll();
                      Pair<Integer, Double> cpuFraction = cpuFractionUpdateActorList.poll();
-                     LOG.info("UPDATE START request " + cpuFraction.fst + " container " + getContainerId() + " cpuSet " + cpuSet.snd + " size "
-                           + cpuSet.snd.size() + " >= cpu fraction " + cpuFraction.snd);
+                     LOG.info("UPDATE START request " + cpuFraction.fst + " " + getContainerId() + " cpuSet " + cpuSet.snd  + " >= cpu fraction " + cpuFraction.snd);
                      long startTime = System.currentTimeMillis();
                      int successful = DockerCommandCpuSet(cpuSet.snd, cpuFraction.snd);
                      long millis = (System.currentTimeMillis() - startTime);
-                     LOG.info("UPDATE END request " + cpuFraction.fst + " container " + getContainerId() + " cpuSet " + cpuSet.snd + " size "
-                           + cpuSet.snd.size() + " elapsed time millis " + millis + " successful? " + (successful == 0));
+                     LOG.info("UPDATE END request " + cpuFraction.fst + " " + getContainerId() + " cpuSet " + cpuSet.snd + " elapsed time millis " + millis + " successful? " + (successful == 0));
                      synchronized (updateRequestsResults) {
                         int oldUpdateRequestResults = updateRequestsResults.get(cpuFraction.fst);
                         int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful + oldUpdateRequestResults);
@@ -1045,12 +1043,11 @@ private long containerLaunchStartTime;
                if (memoryUpdateActorList.size() > 0) {
                   LOG.info("memory size " + memoryUpdateActorList.size());
                   Pair<Integer, Integer> memory = memoryUpdateActorList.poll();
-                  LOG.info("UPDATE START request " + memory.fst + " container " + getContainerId() + " memory " + memory.snd);
+                  LOG.info("UPDATE START request " + memory.fst + " " + getContainerId() + " memory " + memory.snd);
                   long startTime = System.currentTimeMillis();
                   int successful = DockerCommandMemory(memory.snd);
                   long millis = (System.currentTimeMillis() - startTime);
-                  LOG.info("UPDATE END request " + memory.fst + " container " + getContainerId() + " memory " + memory.snd + " elapsed time millis "
-                        + millis + " successful? " + (successful == 0));
+                  LOG.info("UPDATE END request " + memory.fst + " " + getContainerId() + " memory " + memory.snd + " elapsed time millis " + millis + " successful? " + (successful == 0));
                   synchronized (updateRequestsResults) {
                      int oldUpdateRequestResults = updateRequestsResults.get(memory.fst);
                      int newUpdateRequestResult = (oldUpdateRequestResults == -1) ? successful : (successful + oldUpdateRequestResults);
