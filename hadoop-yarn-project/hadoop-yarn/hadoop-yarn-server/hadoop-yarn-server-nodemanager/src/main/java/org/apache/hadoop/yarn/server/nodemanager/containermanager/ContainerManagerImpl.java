@@ -1221,7 +1221,7 @@ public class ContainerManagerImpl extends CompositeService implements
       private void printContainers(Queue<ProcessorSharingContainer> containers, String typeContainers) {
          Iterator<ProcessorSharingContainer> iterator = containers.iterator();
          while (iterator.hasNext()) {
-            ProcessorSharingContainer iContainer = iterator.next();
+            ProcessorSharingContainer iContainer = iterator.next(); //TODO concurrent access errors maybe better synchronize containers? 
             LOG.info("PAMELA ProcessorSharingMonitor DEBUG " + typeContainers + " " + iContainer.container.getContainerId() + " "
                   + iContainer.container.getContainerState() + " age " + iContainer.age
                   + " time_left_ps_window " + iContainer.time_left_ps_window);
@@ -1303,14 +1303,14 @@ public class ContainerManagerImpl extends CompositeService implements
 
                         if (needToResume > 0) {
                            ProcessorSharingContainer resumeContainer = suspendedContainers.poll();
-                           if(resumeContainer.container != null && !containerExiting(resumeContainer.container.getContainerState())) {
+                           if(resumeContainer != null) {
                               // RESUME suspendedContainer
                               int pendingResumeUpdateRequestId = resumeContainer(resumeContainer.container, resumeContainer.container.getResource());
                               pendingResumeContainers.put(pendingResumeUpdateRequestId, resumeContainer);
-                              needToResume--;
                            } else {
                               LOG.info("PAMELA ProcessorSharingMonitor cant resume " + resumeContainer.containerId + " is null or finished");
                            }
+                           needToResume--;
                         } else if (containersToRefreshList.size() > 0) {
                            ProcessorSharingContainer refreshContainer = containersToRefreshList.poll();
                            int pendingResumeUpdateRequestId = resumeContainer(refreshContainer.container, refreshContainer.container.getResource());
@@ -1368,7 +1368,7 @@ public class ContainerManagerImpl extends CompositeService implements
             LOG.info("PAMELA NEW ProcessorSharingMonitor suspended " + suspendedContainers.size() + " executing " + currentlyExecutingContainers.size());
             Iterator<ProcessorSharingContainer> suspendedIterator = suspendedContainers.iterator();
             synchronized (currentlyExecutingContainers) {
-               for (ProcessorSharingContainer executingContainer : currentlyExecutingContainers) {
+               for (ProcessorSharingContainer executingContainer : currentlyExecutingContainers) { //TODO Concurrent access problem!!! maybe we dont need this??
                   executingContainer.time_left_ps_window -= fineGrainedMonitorInterval;
                   LOG.info("PAMELA NEW ProcessorSharingMonitor " + executingContainer.containerId + " time_left_ps_window "
                         + executingContainer.time_left_ps_window + " age " + executingContainer.age);
