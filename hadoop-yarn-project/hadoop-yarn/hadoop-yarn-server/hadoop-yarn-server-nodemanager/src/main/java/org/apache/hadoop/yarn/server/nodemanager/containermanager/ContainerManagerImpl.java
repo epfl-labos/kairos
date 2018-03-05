@@ -1468,21 +1468,23 @@ public class ContainerManagerImpl extends CompositeService implements
            
             // NEW PS, check for which containers the PS window finished
             synchronized (currentlyExecutingContainersLock) { 
-               LOG.info("PAMELA NEW ProcessorSharingMonitor suspended " + suspendedContainers.size() + " executing " + currentlyExecutingContainers.size());
+               //LOG.info("PAMELA NEW ProcessorSharingMonitor suspended " + suspendedContainers.size() + " executing " + currentlyExecutingContainers.size());
                Iterator<ProcessorSharingContainer> suspendedIterator = suspendedContainers.iterator();
-               for (ProcessorSharingContainer executingContainer : currentlyExecutingContainers) { //TODO Concurrent access problem!!!
+               Iterator<ProcessorSharingContainer> executingIterator = currentlyExecutingContainers.iterator();
+               while (executingIterator.hasNext()) {
+                  ProcessorSharingContainer executingContainer = executingIterator.next();
                   executingContainer.time_left_ps_window -= fineGrainedMonitorInterval;
                   LOG.info("PAMELA NEW ProcessorSharingMonitor " + executingContainer.containerId + " time_left_ps_window "
                         + executingContainer.time_left_ps_window + " age " + executingContainer.age);
                   if (executingContainer.time_left_ps_window == 0) {
                      if (suspendedIterator.hasNext()) {
                         ProcessorSharingContainer suspendedContainer = suspendedIterator.next();
-                        if ((executingContainer.age - suspendedContainer.age) >= processorSharingInterval) {
+                        if ((executingContainer.age - suspendedContainer.age) >= processorSharingInterval/2) { // TODO dont know if its a good value
                            LOG.info("PAMELA NEW ProcessorSharingMonitor FINISHED PS " + executingContainer.containerId
                                  + " will be suspended to resume " + suspendedContainer.containerId);
-                           ProcessorSharingContainer suspendContainer = currentlyExecutingContainers.poll();
-                           int pendingSuspendUpdateRequestId = suspendContainer(suspendContainer.container);
-                           pendingSuspendContainers.put(pendingSuspendUpdateRequestId, suspendContainer);
+                           executingIterator.remove();
+                           int pendingSuspendUpdateRequestId = suspendContainer(executingContainer.container);
+                           pendingSuspendContainers.put(pendingSuspendUpdateRequestId, executingContainer);
                            needToResume++;
                         } else {
                            LOG.info("PAMELA NEW ProcessorSharingMonitor FINISHED PS " + executingContainer.containerId + " wont suspend, age "
