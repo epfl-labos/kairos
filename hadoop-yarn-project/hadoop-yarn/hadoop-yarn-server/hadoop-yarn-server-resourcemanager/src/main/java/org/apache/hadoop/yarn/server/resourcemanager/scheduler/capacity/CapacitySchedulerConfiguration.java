@@ -89,6 +89,13 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
   public static final int DEFAULT_MAXIMUM_CONTAINERS_PER_NODE = 1;
 
   @Private
+  public static final String LOAD_BALANCING_ALGORITHM =
+    PREFIX + "processorsharing.load-balancing-algorithm";
+
+  @Private
+  public static final String DEFAULT_LOAD_BALANCING_ALGORITHM = "RoundRobin"; // could be OldestYoungest Random
+  
+  @Private
   public static final String PROCESSOR_SHARING_ENABLE =
     PREFIX + "processorsharing.enable";
 
@@ -310,8 +317,8 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
 	  return getInt(MAXIMUM_CONTAINERS_PER_NODE, DEFAULT_MAXIMUM_CONTAINERS_PER_NODE);
   }
 
-  public int getLoadBalancingAlgorithm() {
-	  return getInt(MAXIMUM_CONTAINERS_PER_NODE, DEFAULT_MAXIMUM_CONTAINERS_PER_NODE);
+  public String getLoadBalancingAlgorithm() {
+     return getString(LOAD_BALANCING_ALGORITHM, DEFAULT_LOAD_BALANCING_ALGORITHM);
   }
   
   public boolean getProcessorSharingEnabled() {

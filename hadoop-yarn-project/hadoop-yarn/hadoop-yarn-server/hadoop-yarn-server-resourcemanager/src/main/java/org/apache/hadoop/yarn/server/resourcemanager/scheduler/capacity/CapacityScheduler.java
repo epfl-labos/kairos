@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -413,21 +414,27 @@ public class CapacityScheduler extends
   }
 
   static void scheduleProcessorSharing(CapacityScheduler cs) {
-	  LOG.info("PAMELA scheduleProcessorSharing ");
-	  // Fill nodes priority queue
-	  Collection<FiCaSchedulerNode> nodes = cs.getAllNodes().values();
-	  java.util.Queue<FiCaSchedulerNode> customerPriorityQueue = new PriorityQueue<>(nodes.size(), activeContainersAgeComparator);
-	  for (FiCaSchedulerNode node : nodes)
-		  customerPriorityQueue.add(node);
-	  
+     String loadBalancingAlgorithm = cs.conf.getLoadBalancingAlgorithm();
+     int maxContainersPerNode = cs.conf.getMaximumContainersPerNode();
+	  LOG.info("PAMELA scheduleProcessorSharing round loadBalancingAlgorithm " + loadBalancingAlgorithm + " maxContainersPerNode " +maxContainersPerNode);
+
+     // Fill in nodes priority queue
+	  Collection<FiCaSchedulerNode> rawNodes = cs.getAllNodes().values();
+	  PriorityQueue<FiCaSchedulerNode> nodes = new PriorityQueue<>(rawNodes.size());
+     if(loadBalancingAlgorithm.equals("RoundRobin"))
+        nodes = new PriorityQueue<>(rawNodes.size(), activeContainersIdComparator);
+     else if(loadBalancingAlgorithm.equals("OldestYoungest")) 
+        nodes = new PriorityQueue<>(rawNodes.size(), activeContainersAgeComparator);
+     
+     for (FiCaSchedulerNode node : cs.getAllNodes().values())
+        nodes.add(node); 
+     
 	  // Now schedule
-      int maxContainersPerNode = cs.conf.getMaximumContainersPerNode();
-	  FiCaSchedulerNode node = customerPriorityQueue.poll();
-	  while (node != null) {
+	  while (!nodes.isEmpty()) {
+	     FiCaSchedulerNode node = nodes.poll();
 		  LOG.info("PAMELA scheduleProcessorSharing node "+ node.getNodeName()+" has "+node.getNumContainers()+" active containers. Age in RMNode "+ node.getRMNode().getOldestYoungestAge());
 		  if((maxContainersPerNode - node.getNumContainers()) > 0) 
-			  cs.allocateContainersToNode(node);
-		  node = customerPriorityQueue.poll();		  
+			  cs.allocateContainersToNode(node);		  
 	  }
 	  // Now sleep
 	  try {
@@ -435,6 +442,15 @@ public class CapacityScheduler extends
 	  } catch (InterruptedException e) {}
   }
   
+  //Comparator anonymous class implementation
+  private static Comparator<FiCaSchedulerNode> activeContainersIdComparator = new Comparator<FiCaSchedulerNode>(){ 
+     @Override
+     public int compare(FiCaSchedulerNode node1, FiCaSchedulerNode node2) {
+           int numContainers = node1.getNumContainers() - node2.getNumContainers();
+           return numContainers == 0 ? node1.getNodeName().compareTo(node2.getNodeName()) : numContainers;
+       }
+  };  
+
   //Comparator anonymous class implementation
 	private static Comparator<FiCaSchedulerNode> activeContainersAgeComparator = new Comparator<FiCaSchedulerNode>(){	
 		@Override
@@ -460,9 +476,10 @@ public class CapacityScheduler extends
           try {
             Thread.sleep(100);
           } catch (InterruptedException ie) {}
-        } else {
+        } else {                  
           //schedule(cs);
           scheduleProcessorSharing(cs);
+          
         }
       }
     }
