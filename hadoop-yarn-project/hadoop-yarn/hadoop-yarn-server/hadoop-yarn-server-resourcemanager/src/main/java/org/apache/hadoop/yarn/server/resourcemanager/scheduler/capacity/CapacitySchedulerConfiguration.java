@@ -318,7 +318,7 @@ public class CapacitySchedulerConfiguration extends ReservationSchedulerConfigur
   }
 
   public String getLoadBalancingAlgorithm() {
-     return getString(LOAD_BALANCING_ALGORITHM, DEFAULT_LOAD_BALANCING_ALGORITHM);
+     return get(LOAD_BALANCING_ALGORITHM, DEFAULT_LOAD_BALANCING_ALGORITHM);
   }
   
   public boolean getProcessorSharingEnabled() {
