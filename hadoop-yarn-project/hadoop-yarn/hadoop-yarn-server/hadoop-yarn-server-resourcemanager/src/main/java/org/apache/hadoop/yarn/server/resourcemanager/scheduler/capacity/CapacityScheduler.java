@@ -423,6 +423,8 @@ public class CapacityScheduler extends
 	  PriorityQueue<FiCaSchedulerNode> nodes = new PriorityQueue<>(rawNodes.size());
      if(loadBalancingAlgorithm.equals("RoundRobin"))
         nodes = new PriorityQueue<>(rawNodes.size(), activeContainersIdComparator);
+     else if(loadBalancingAlgorithm.equals("Random")) 
+        nodes = new PriorityQueue<>(rawNodes.size(), activeContainersRandomComparator);
      else if(loadBalancingAlgorithm.equals("OldestYoungest")) 
         nodes = new PriorityQueue<>(rawNodes.size(), activeContainersAgeComparator);
      
@@ -448,6 +450,17 @@ public class CapacityScheduler extends
      public int compare(FiCaSchedulerNode node1, FiCaSchedulerNode node2) {
            int numContainers = node1.getNumContainers() - node2.getNumContainers();
            return numContainers == 0 ? node1.getNodeName().compareTo(node2.getNodeName()) : numContainers;
+       }
+  };  
+  
+  //Comparator anonymous class implementation
+  private static Comparator<FiCaSchedulerNode> activeContainersRandomComparator = new Comparator<FiCaSchedulerNode>(){ 
+     @Override
+     public int compare(FiCaSchedulerNode node1, FiCaSchedulerNode node2) {
+           int numContainers = node1.getNumContainers() - node2.getNumContainers();
+           // Randomly choose one of them
+           int randomComparison = (random.nextInt(1) == 0? -1 : 1);
+           return numContainers == 0 ? randomComparison : numContainers;
        }
   };  
 
