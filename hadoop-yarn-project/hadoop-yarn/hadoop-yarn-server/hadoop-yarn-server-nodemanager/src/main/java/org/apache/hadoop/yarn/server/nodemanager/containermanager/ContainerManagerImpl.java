@@ -362,9 +362,25 @@ public class ContainerManagerImpl extends CompositeService implements
     }
   }
 
-  private void updateOldestYoungestAge(int oldestYoungestAge) {
-      LOG.info("Adding oldestYoungestAge "+oldestYoungestAge);
-	  nodeStatusUpdater.addOldestYoungestAge(oldestYoungestAge);
+  private void updateOldestYoungestAge(Queue<ProcessorSharingContainer> youngestContainersAge, int maxContainers) {
+     int index = Math.min(youngestContainersAge.size(),maxContainers);
+     Iterator<ProcessorSharingContainer> iter = youngestContainersAge.iterator();
+     
+     // Get age from container at position nr of containers
+     int i = 0;
+     ProcessorSharingContainer youngestContainer = null;
+     while(iter.hasNext() && i<index) {
+        youngestContainer = iter.next();
+        i++;
+     }
+     
+     if (iter.hasNext()) // should always be true, unless no containers
+        youngestContainer = iter.next();
+     
+     if (youngestContainer != null) {
+        LOG.info("Updating oldestyoungest Age " + youngestContainer.age + " should be index " + index);
+        nodeStatusUpdater.addOldestYoungestAge(youngestContainer.age);
+     }
   }
   
   private void waitForRecoveredContainers() throws InterruptedException {
@@ -1186,6 +1202,8 @@ public class ContainerManagerImpl extends CompositeService implements
       Queue<ProcessorSharingContainer> containersToSuspendList = new LinkedList<ProcessorSharingContainer>();
       Queue<ProcessorSharingContainer> pendingContainersToRefresh = new LinkedList<ProcessorSharingContainer>();
       Queue<ProcessorSharingContainer> containersCleaningUp = new LinkedList<ProcessorSharingContainer>();
+      Queue<ProcessorSharingContainer> youngestContainersAges;
+
       
       long processorSharingInterval;
       int fineGrainedMonitorInterval;
@@ -1212,6 +1230,7 @@ public class ContainerManagerImpl extends CompositeService implements
          this.maximumConcurrentContainers = maximumConcurrentContainers;
          currentlyExecutingContainers = new PriorityQueue<>(maximumConcurrentContainers*2, oldestContainersAgeComparator);
          suspendedContainers = new PriorityQueue<>(maximumConcurrentContainers*2, youngestContainersAgeComparator);
+         youngestContainersAges = new PriorityQueue<>(maximumConcurrentContainers*2, youngestContainersAgeComparator);
          this.needToResume = 0;
          resumeExtra = 0;
          okToRefresh = 0;
@@ -1315,7 +1334,11 @@ public class ContainerManagerImpl extends CompositeService implements
                         // Cleanup data structures
                         LOG.info("PAMELA ProcessorSharingMonitor FINISHED suspending after adding " + pendingSuspendAfterAddingContainer.container.getContainerId()
                               + " suspendRequestId " + pendingSuspendUpdateRequestId + " containerToRefresh " + pendingSuspendAfterAddingContainer.containerToRefresh.containerId);
+                        boolean removed = youngestContainersAges.remove(pendingSuspendAfterAddingContainer);
                         pendingSuspendAfterAddingContainer.updateAgeSuspend();
+                        LOG.info("PAMELA oldestyoungest finished suspending removed? " + removed + " new age " + pendingSuspendAfterAddingContainer.age);
+                        youngestContainersAges.add(pendingSuspendAfterAddingContainer);
+                        
                         pendingSuspendAfterAddingContainer.time_left_ps_window = -1; // just in case
                         pendingSuspendAfterAdding.remove(pendingSuspendUpdateRequestId);
 
@@ -1383,7 +1406,10 @@ public class ContainerManagerImpl extends CompositeService implements
                      LOG.info("PAMELA ProcessorSharingMonitor FINISHED suspending " + pendingSuspendContainer.container.getContainerId()
                            + " suspendRequestId " + entry.getKey() + " needToResume " + needToResume);
                      ProcessorSharingContainer finishedSuspendingContainer = new ProcessorSharingContainer(pendingSuspendContainer);
-                     pendingSuspendContainer.updateAgeSuspend();
+                     boolean removed = youngestContainersAges.remove(finishedSuspendingContainer);
+                     finishedSuspendingContainer.updateAgeSuspend();
+                     LOG.info("PAMELA oldestyoungest finished suspending removed? " + removed + " new age " + finishedSuspendingContainer.age);
+                     youngestContainersAges.add(finishedSuspendingContainer);
                      pendingSuspendContainer.time_left_ps_window = -1; // just in case
                      pendingSuspendIterator.remove();
 
@@ -1485,6 +1511,12 @@ public class ContainerManagerImpl extends CompositeService implements
                   executingContainer.time_left_ps_window -= fineGrainedMonitorInterval;
                   LOG.info("PAMELA NEW ProcessorSharingMonitor " + executingContainer.containerId + " time_left_ps_window "
                         + executingContainer.time_left_ps_window + " age " + executingContainer.age);
+                  
+                  boolean removed = youngestContainersAges.remove(executingContainer);
+                  executingContainer.updateAge();
+                  LOG.info("PAMELA oldestyoungest ps window check removed? " + removed + " new age " + executingContainer.age);
+                  youngestContainersAges.add(executingContainer);                  
+                  
                   if (executingContainer.time_left_ps_window == 0) {
                      if (suspendedIterator.hasNext()) {
                         ProcessorSharingContainer suspendedContainer = suspendedIterator.next();
@@ -1506,6 +1538,8 @@ public class ContainerManagerImpl extends CompositeService implements
                      }
                   }
                }//for
+               
+               updateOldestYoungestAge(youngestContainersAges, maximumConcurrentContainers);
             }
             
             LOG.info("PAMELA ProcessorSharingMonitor resumeExtra " + resumeExtra + " containersCleaningUp "+ containersCleaningUp.size());
@@ -1580,8 +1614,11 @@ public class ContainerManagerImpl extends CompositeService implements
                   resume += 1;
                }            
             }
-            for(ProcessorSharingContainer containerToDelete : containersToDelete) //Doing this to avoid ConcurrentModificationException //TODO maybe just try iterator.remove instead!!!
+            for(ProcessorSharingContainer containerToDelete : containersToDelete) {//Doing this to avoid ConcurrentModificationException //TODO maybe just try iterator.remove instead!!!
                currentlyExecutingContainers.remove(containerToDelete);
+               boolean removed = youngestContainersAges.remove(containerToDelete);
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
+            }
          }
          
          iterator = suspendedContainers.iterator();
@@ -1591,6 +1628,8 @@ public class ContainerManagerImpl extends CompositeService implements
                LOG.info("PAMELA ProcessorSharingMonitor CLEANUP suspendedContainers " + iContainer.container.getContainerId() + " "
                      + iContainer.container.getContainerState() + " age " + iContainer.age);
                iterator.remove(); //suspendedContainers.remove(iContainer);
+               boolean removed = youngestContainersAges.remove(iContainer);
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
                containersCleaningUp.add(iContainer);
                //Do not add extra to resume
             }
@@ -1605,6 +1644,8 @@ public class ContainerManagerImpl extends CompositeService implements
                   LOG.info("PAMELA ProcessorSharingMonitor CLEANUP containersToSuspendList " + iContainer.container.getContainerId() + " "
                         + iContainer.container.getContainerState() + " age " + iContainer.age + " will add " + iContainer.containerToRefresh.containerId + " to be refreshed");
                   iterator.remove(); //containersToSuspendList.remove(iContainer);
+                  boolean removed = youngestContainersAges.remove(iContainer);
+                  LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
                   additionalSleepForLaunching = 0;
                   // DONT REFRESH because there was no core liberated
                   ProcessorSharingContainer refreshContainer = iContainer.containerToRefresh;
@@ -1628,6 +1669,8 @@ public class ContainerManagerImpl extends CompositeService implements
                   pendingContainersToRefresh.add(refreshContainer);
                }
                pendingSuspendAfterAddingIter.remove(); //moved to after if
+               boolean removed = youngestContainersAges.remove(entry.getValue());
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
             }
          }         
          
@@ -1638,6 +1681,8 @@ public class ContainerManagerImpl extends CompositeService implements
             if (entry.getValue().container == null || containerExiting(entry.getValue().container.getContainerState())) {
                LOG.info("PAMELA ProcessorSharingMonitor CLEANUP pendingSuspendContainers " + entry.getValue().containerId);
                pendingSuspendIter.remove();
+               boolean removed = youngestContainersAges.remove(entry.getValue());
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
                // we dont add extra resume here because it will be couNted in needToResume
             }           
          }
@@ -1649,6 +1694,8 @@ public class ContainerManagerImpl extends CompositeService implements
             if (entry.getValue().container == null || containerExiting(entry.getValue().container.getContainerState())) {
                LOG.info("PAMELA ProcessorSharingMonitor CLEANUP pendingResumeContainers " + entry.getValue().containerId);
                pendingResumeIter.remove();
+               boolean removed = youngestContainersAges.remove(entry.getValue());
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
             }           
          }
          return resume + resumeExtra;
@@ -1688,7 +1735,8 @@ public class ContainerManagerImpl extends CompositeService implements
 
       public void addContainer(Container newlyAddedContainer) {
          ProcessorSharingContainer newContainer = new ProcessorSharingContainer(newlyAddedContainer);
-
+         
+         youngestContainersAges.add(newContainer);
          synchronized (currentlyExecutingContainersLock) {
             if (currentlyExecutingContainers.size() >= maximumConcurrentContainers) {
                ProcessorSharingContainer oldestCurrentlyExecutingContainer = currentlyExecutingContainers.poll();

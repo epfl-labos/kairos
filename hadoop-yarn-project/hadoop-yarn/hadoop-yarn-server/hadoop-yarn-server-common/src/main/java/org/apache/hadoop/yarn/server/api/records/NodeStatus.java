@@ -30,7 +30,7 @@ public abstract class NodeStatus {
   public static NodeStatus newInstance(NodeId nodeId, int responseId,
       List<ContainerStatus> containerStatuses,
       List<ApplicationId> keepAliveApplications,
-      NodeHealthStatus nodeHealthStatus, int oldestYoungestAge) {
+      NodeHealthStatus nodeHealthStatus, long oldestYoungestAge) {
     NodeStatus nodeStatus = Records.newRecord(NodeStatus.class);
     nodeStatus.setResponseId(responseId);
     nodeStatus.setNodeId(nodeId);
@@ -43,7 +43,7 @@ public abstract class NodeStatus {
 
   public abstract NodeId getNodeId();
   public abstract int getResponseId();
-  public abstract int getOldestYoungestAge();
+  public abstract long getOldestYoungestAge();
   
   public abstract List<ContainerStatus> getContainersStatuses();
   public abstract void setContainersStatuses(
@@ -57,5 +57,5 @@ public abstract class NodeStatus {
 
   public abstract void setNodeId(NodeId nodeId);
   public abstract void setResponseId(int responseId);
-  public abstract void setOldestYoungestAge(int oldestYoungestAge);
+  public abstract void setOldestYoungestAge(long oldestYoungestAge);
 }

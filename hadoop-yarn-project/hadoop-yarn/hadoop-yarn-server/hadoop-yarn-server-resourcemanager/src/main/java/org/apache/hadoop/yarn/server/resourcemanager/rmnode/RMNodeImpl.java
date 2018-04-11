@@ -105,7 +105,7 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
   private long lastHealthReportTime;
   private String nodeManagerVersion;
   
-  private int oldestYoungestAge;
+  private long oldestYoungestAge;
 
   /* set of containers that have just launched */
   private final Set<ContainerId> launchedContainers =
@@ -908,12 +908,12 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
     }
   }
 
-	public int getOldestYoungestAge() {
+	public long getOldestYoungestAge() {
 		return oldestYoungestAge;
 	}
 	
 	@Override
-	public void updateOldestYoungestAge(int oldestYoungestAge) {
+	public void updateOldestYoungestAge(long oldestYoungestAge) {
 		this.oldestYoungestAge = oldestYoungestAge;	
 	}
 

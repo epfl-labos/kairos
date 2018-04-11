@@ -89,7 +89,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   private final Dispatcher dispatcher;
 
   private NodeId nodeId;
-  private int oldestYoungestAge;
+  private long oldestYoungestAge;
   private long nextHeartBeatInterval;
   private ResourceTracker resourceTracker;
   private Resource totalResource;
@@ -714,7 +714,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   }
 	
 	@Override
-	public void addOldestYoungestAge(int oldestYoungestAge) {
+	public void addOldestYoungestAge(long oldestYoungestAge) {
 		LOG.info("PAMELA addOldestYoungestAge age " + oldestYoungestAge);
 		this.oldestYoungestAge = oldestYoungestAge;
 	}

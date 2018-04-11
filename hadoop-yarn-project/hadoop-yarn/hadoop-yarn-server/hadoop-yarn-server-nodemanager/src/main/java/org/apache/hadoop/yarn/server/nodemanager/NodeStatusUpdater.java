@@ -49,7 +49,7 @@ public interface NodeStatusUpdater extends Service {
    */
   public void addCompletedContainer(ContainerId containerId);
 
-  public void addOldestYoungestAge(int oldestYoungestAge);
+  public void addOldestYoungestAge(long oldestYoungestAge);
   
   /**
    * Clear the list of recently completed containers

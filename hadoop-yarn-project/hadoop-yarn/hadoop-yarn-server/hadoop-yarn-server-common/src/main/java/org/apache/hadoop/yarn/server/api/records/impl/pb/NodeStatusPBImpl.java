@@ -45,7 +45,7 @@ public class NodeStatusPBImpl extends NodeStatus {
   boolean viaProto = false;
   
   private NodeId nodeId = null;
-  private int oldestYoungestAge = 0;
+  private long oldestYoungestAge = 0;
   private List<ContainerStatus> containers = null;
   private NodeHealthStatus nodeHealthStatus = null;
   private List<ApplicationId> keepAliveApplications = null;
@@ -214,7 +214,7 @@ public class NodeStatusPBImpl extends NodeStatus {
   }
 
 	@Override
-	public synchronized int getOldestYoungestAge() {
+	public synchronized long getOldestYoungestAge() {
 	    NodeStatusProtoOrBuilder p = viaProto ? proto : builder;
 	    if (this.oldestYoungestAge != 0) {
 	      return this.oldestYoungestAge;
@@ -228,7 +228,7 @@ public class NodeStatusPBImpl extends NodeStatus {
 	}
 	
 	@Override
-	public synchronized void setOldestYoungestAge(int oldestYoungestAge) {
+	public synchronized void setOldestYoungestAge(long oldestYoungestAge) {
 	    maybeInitBuilder();
 	    if (oldestYoungestAge == 0)
 	        builder.clearOldestYoungestAge();
