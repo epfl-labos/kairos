@@ -448,7 +448,7 @@ public class CapacityScheduler extends AbstractYarnScheduler<FiCaSchedulerApp, F
       @Override
       public int compare(FiCaSchedulerNode node1, FiCaSchedulerNode node2) {
          int numContainers = node1.getNumContainers() - node2.getNumContainers();
-         long ageComparison = node1.getRMNode().getOldestYoungestAge() - node2.getRMNode().getOldestYoungestAge();
+         long ageComparison = node2.getRMNode().getOldestYoungestAge() - node1.getRMNode().getOldestYoungestAge(); //Oldest chosen!!
          return (int) (numContainers == 0 ? ageComparison : numContainers); 
       }
    };

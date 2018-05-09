@@ -1549,8 +1549,10 @@ public class ContainerManagerImpl extends CompositeService implements
                while(iterator.hasNext()) {
                   ProcessorSharingContainer container = iterator.next();
                   if (container.container.getContainerState() == org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState.DONE) {
-                     LOG.info("PAMELA ProcessorSharingMonitor " + container.containerId + " DONE, readyToResume "+ readyToResume);
                      readyToResume += 1;
+                     LOG.info("PAMELA ProcessorSharingMonitor " + container.containerId + " DONE, readyToResume "+ readyToResume);
+                     boolean removed = youngestContainersAges.remove(container);
+                     LOG.info("PAMELA oldestyoungest CLEANUP removed? " + removed + " remaining " + youngestContainersAges.size());
                      iterator.remove();
                      break; // Only resume one at a time //TODO change this to resume many, also pendingResumeContainers check like 1453
                   }
@@ -1617,7 +1619,7 @@ public class ContainerManagerImpl extends CompositeService implements
             for(ProcessorSharingContainer containerToDelete : containersToDelete) {//Doing this to avoid ConcurrentModificationException //TODO maybe just try iterator.remove instead!!!
                currentlyExecutingContainers.remove(containerToDelete);
                boolean removed = youngestContainersAges.remove(containerToDelete);
-               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " + removed + " remaining " + youngestContainersAges.size());
             }
          }
          
@@ -1629,7 +1631,7 @@ public class ContainerManagerImpl extends CompositeService implements
                      + iContainer.container.getContainerState() + " age " + iContainer.age);
                iterator.remove(); //suspendedContainers.remove(iContainer);
                boolean removed = youngestContainersAges.remove(iContainer);
-               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed + " remaining " + youngestContainersAges.size());
                containersCleaningUp.add(iContainer);
                //Do not add extra to resume
             }
@@ -1645,7 +1647,7 @@ public class ContainerManagerImpl extends CompositeService implements
                         + iContainer.container.getContainerState() + " age " + iContainer.age + " will add " + iContainer.containerToRefresh.containerId + " to be refreshed");
                   iterator.remove(); //containersToSuspendList.remove(iContainer);
                   boolean removed = youngestContainersAges.remove(iContainer);
-                  LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
+                  LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed + " remaining " + youngestContainersAges.size());
                   additionalSleepForLaunching = 0;
                   // DONT REFRESH because there was no core liberated
                   ProcessorSharingContainer refreshContainer = iContainer.containerToRefresh;
@@ -1670,7 +1672,7 @@ public class ContainerManagerImpl extends CompositeService implements
                }
                pendingSuspendAfterAddingIter.remove(); //moved to after if
                boolean removed = youngestContainersAges.remove(entry.getValue());
-               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed + " remaining " + youngestContainersAges.size());
             }
          }         
          
@@ -1682,7 +1684,7 @@ public class ContainerManagerImpl extends CompositeService implements
                LOG.info("PAMELA ProcessorSharingMonitor CLEANUP pendingSuspendContainers " + entry.getValue().containerId);
                pendingSuspendIter.remove();
                boolean removed = youngestContainersAges.remove(entry.getValue());
-               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed + " remaining " + youngestContainersAges.size());
                // we dont add extra resume here because it will be couNted in needToResume
             }           
          }
@@ -1695,7 +1697,7 @@ public class ContainerManagerImpl extends CompositeService implements
                LOG.info("PAMELA ProcessorSharingMonitor CLEANUP pendingResumeContainers " + entry.getValue().containerId);
                pendingResumeIter.remove();
                boolean removed = youngestContainersAges.remove(entry.getValue());
-               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed);
+               LOG.info("PAMELA oldestyoungest CLEANUP removed? " +removed + " remaining " + youngestContainersAges.size());
             }           
          }
          return resume + resumeExtra;
@@ -1737,6 +1739,7 @@ public class ContainerManagerImpl extends CompositeService implements
          ProcessorSharingContainer newContainer = new ProcessorSharingContainer(newlyAddedContainer);
          
          youngestContainersAges.add(newContainer);
+         LOG.info("PAMELA oldestyoungest added " +newContainer.containerId + " total " + youngestContainersAges.size());
          synchronized (currentlyExecutingContainersLock) {
             if (currentlyExecutingContainers.size() >= maximumConcurrentContainers) {
                ProcessorSharingContainer oldestCurrentlyExecutingContainer = currentlyExecutingContainers.poll();
@@ -1753,20 +1756,21 @@ public class ContainerManagerImpl extends CompositeService implements
             } // if(currentlyExecutingContainers.size() >= maximumConcurrentContainers)
    
             // To catch a null pointer exception
-            LOG.info("ProcessorSharing DEBUG before adding, to be added "+newContainer.containerId+" age "+newContainer.age + " is cleaningUp in a good state? " +(containersCleaningUp.size()==resumeExtra));
+            LOG.info("ProcessorSharingMonitor adding "+newContainer.containerId+ " is cleaningUp in a good state? " +(containersCleaningUp.size()==resumeExtra) + " containersCleaningUp " + containersCleaningUp.size() + " resumeExtra " + resumeExtra);
 
             // add currentlyExecutingContainer
             newContainer.time_left_ps_window = this.processorSharingInterval; //TODO not sure if we put this here or not
-            if(containersCleaningUp.size()>0) {               
-               LOG.info("ProcessorSharing DEBUG adding, will reduce resumeExtra " + resumeExtra + " should be >0");
+            //Why do we reduce resumeExtra?? 
+            /*if(resumeExtra > 0) {               // Better to do this than use cleaningup
                resumeExtra -= 1;
-            }
+               LOG.info("ProcessorSharing after adding "+newContainer.containerId+", reduced resumeExtra to " + resumeExtra);
+            }*/
          
-            LOG.info("ProcessorSharing DEBUG before adding, currentlyExecutingContainers null? "+currentlyExecutingContainers == null);
+            LOG.info("ProcessorSharingMonitor DEBUG before adding, currentlyExecutingContainers null? "+currentlyExecutingContainers == null);
             for(ProcessorSharingContainer container: currentlyExecutingContainers) {
-               LOG.info("ProcessorSharing DEBUG before adding, container null? "+container == null);
-               LOG.info("ProcessorSharing DEBUG before adding, containerId null? "+container.containerId == null);
-               LOG.info("ProcessorSharing DEBUG before adding, "+container.containerId+" age null? "+container.age==null);
+               LOG.info("ProcessorSharingMonitor DEBUG before adding, container null? "+container == null);
+               LOG.info("ProcessorSharingMonitor DEBUG before adding, containerId null? "+container.containerId == null);
+               LOG.info("ProcessorSharingMonitor DEBUG before adding, "+container.containerId+" age null? "+container.age==null);
             }
             currentlyExecutingContainers.add(newContainer);
             LOG.info("PAMELA ProcessorSharingMonitor new container " + newlyAddedContainer.getContainerId() + " currentlyExecutingContainers "
