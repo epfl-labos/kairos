@@ -403,7 +403,9 @@ public class CapacityScheduler extends AbstractYarnScheduler<FiCaSchedulerApp, F
       else if (loadBalancingAlgorithm.equals("Random"))
          nodes = new PriorityQueue<>(rawNodes.size(), activeContainersRandomComparator);
       else if (loadBalancingAlgorithm.equals("OldestYoungest"))
-         nodes = new PriorityQueue<>(rawNodes.size(), activeContainersAgeComparator);
+         nodes = new PriorityQueue<>(rawNodes.size(), lowestActiveContainersHighestAgeComparator);
+      else if (loadBalancingAlgorithm.equals("Sum") || loadBalancingAlgorithm.equals("StandardDeviation"))
+         nodes = new PriorityQueue<>(rawNodes.size(), lowestActiveContainersLowestAgeComparator);
 
       for (FiCaSchedulerNode node : cs.getAllNodes().values())
          nodes.add(node);
@@ -444,7 +446,7 @@ public class CapacityScheduler extends AbstractYarnScheduler<FiCaSchedulerApp, F
    };
 
    // Comparator anonymous class implementation
-   private static Comparator<FiCaSchedulerNode> activeContainersAgeComparator = new Comparator<FiCaSchedulerNode>() {
+   private static Comparator<FiCaSchedulerNode> lowestActiveContainersHighestAgeComparator = new Comparator<FiCaSchedulerNode>() {
       @Override
       public int compare(FiCaSchedulerNode node1, FiCaSchedulerNode node2) {
          int numContainers = node1.getNumContainers() - node2.getNumContainers();
@@ -453,6 +455,15 @@ public class CapacityScheduler extends AbstractYarnScheduler<FiCaSchedulerApp, F
       }
    };
 
+   // Comparator anonymous class implementation
+   private static Comparator<FiCaSchedulerNode> lowestActiveContainersLowestAgeComparator = new Comparator<FiCaSchedulerNode>() {
+      @Override
+      public int compare(FiCaSchedulerNode node1, FiCaSchedulerNode node2) {
+         int numContainers = node1.getNumContainers() - node2.getNumContainers();
+         long ageComparison = node1.getRMNode().getOldestYoungestAge() - node2.getRMNode().getOldestYoungestAge(); //Oldest chosen!!
+         return (int) (numContainers == 0 ? ageComparison : numContainers); 
+      }
+   };
    static class AsyncScheduleThread extends Thread {
 
       private final CapacityScheduler cs;

@@ -1213,6 +1213,11 @@ public class YarnConfiguration extends Configuration {
   public static final String NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS =
       NM_PREFIX + "processorsharing.maximum-concurrent-containers";
   public static final int DEFAULT_NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS = 4;
+
+
+  public static final String LOAD_BALANCING_PARAMETER =
+      NM_PREFIX + "processorsharing.load-balancing-parameter";
+  public static final String DEFAULT_LOAD_BALANCING_PARAMETER = "Youngest";
   
   // ******  PROCESSOR SHARING CONFIGS ******
   

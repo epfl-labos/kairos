@@ -189,6 +189,7 @@ public class ContainerManagerImpl extends CompositeService implements
   private long processorSharingWindow;
   private int processorSharingFineGrainedInterval;
   private ProcessorSharingMonitor processorSharingMonitor;
+  private String loadbalancing = "StandardDeviation";
 
   public ContainerManagerImpl(Context context, ContainerExecutor exec,
       DeletionService deletionContext, NodeStatusUpdater nodeStatusUpdater,
@@ -267,6 +268,8 @@ public class ContainerManagerImpl extends CompositeService implements
         double minimumCpu = conf.getDouble(YarnConfiguration.NM_PROCESSOR_SHARING_MINIMUM_CPU, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_MINIMUM_CPU);
         // Concurrent containers should be calculated based on the total resources of a node and the size of the containers. IDEALLY DYNAMIC
         int maximumConcurrentContainers = conf.getInt(YarnConfiguration.NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS, YarnConfiguration.DEFAULT_NM_PROCESSOR_SHARING_MAXIMUM_CONCURRENT_CONTAINERS);
+        loadbalancing = conf.get(YarnConfiguration.LOAD_BALANCING_PARAMETER, YarnConfiguration.DEFAULT_LOAD_BALANCING_PARAMETER);
+        LOG.info("PAMELA loadbalancing " + loadbalancing);
         this.processorSharingMonitor = new ProcessorSharingMonitor(this.processorSharingWindow, processorSharingFineGrainedInterval, minimumMemory, minimumCpu, maximumConcurrentContainers);
     }
     super.serviceInit(conf);
@@ -362,24 +365,63 @@ public class ContainerManagerImpl extends CompositeService implements
     }
   }
 
-  private void updateOldestYoungestAge(Queue<ProcessorSharingContainer> youngestContainersAge, int maxContainers) {
-     int index = Math.min(youngestContainersAge.size(),maxContainers);
-     Iterator<ProcessorSharingContainer> iter = youngestContainersAge.iterator();
-     
-     // Get age from container at position nr of containers
-     int i = 0;
-     ProcessorSharingContainer youngestContainer = null;
-     while(iter.hasNext() && i<index) {
-        youngestContainer = iter.next();
-        i++;
+  public static double stdev(long[] list){
+     double sum = 0.0;
+     double mean = 0.0;
+     double num=0.0;
+     double numi = 0.0;
+
+     for (float i : list) {
+         sum+=i;
      }
+     mean = sum/list.length;
+
+     for (float i : list) {
+         numi = Math.pow(((double) i - mean), 2);
+         num+=numi;
+     }
+     return Math.sqrt(num/list.length);
+ }
+  
+  private void updateOldestYoungestAge(Queue<ProcessorSharingContainer> youngestContainersAge, int maxContainers) {
      
-     if (iter.hasNext()) // should always be true, unless no containers
-        youngestContainer = iter.next();
-     
-     if (youngestContainer != null) {
-        LOG.info("Updating oldestyoungest Age " + youngestContainer.age + " should be index " + index);
-        nodeStatusUpdater.addOldestYoungestAge(youngestContainer.age);
+     Iterator<ProcessorSharingContainer> iter = youngestContainersAge.iterator();
+     if (loadbalancing.equals("StandardDeviation")) {
+        
+        long[] ages = new long[youngestContainersAge.size()];
+        int i = 0;
+        while(iter.hasNext()) {
+           ages[i++]= iter.next().age;        
+        }        
+        LOG.info("Updating loadbalancing parameter stdev " + (long) stdev(ages));
+        nodeStatusUpdater.addOldestYoungestAge((long) stdev(ages));
+        
+     } else if (loadbalancing.equals("Sum")) {
+        long sum = 0;
+        while(iter.hasNext()) {
+           sum += iter.next().age;        
+        }
+        LOG.info("Updating loadbalancing parameter sum " + sum);
+        nodeStatusUpdater.addOldestYoungestAge(sum);
+        
+     } else if (loadbalancing.equals("Youngest")) {
+        int index = Math.min(youngestContainersAge.size(),maxContainers); 
+        // Get age from container at position nr of containers
+        int i = 0;
+        ProcessorSharingContainer youngestContainer = null;
+        while(iter.hasNext() && i<index) {
+           youngestContainer = iter.next();
+           i++;
+        }
+        
+        if (iter.hasNext()) // should always be true, unless no containers
+           youngestContainer = iter.next();
+        
+        if (youngestContainer != null) {
+           LOG.info("Updating loadbalancing parameter youngest  " + youngestContainer.age);
+           //LOG.info("Updating oldestyoungest Age " + youngestContainer.age + " should be index " + index);
+           nodeStatusUpdater.addOldestYoungestAge(youngestContainer.age);
+        }
      }
   }
   
@@ -1147,6 +1189,7 @@ public class ContainerManagerImpl extends CompositeService implements
       long time_left_ps_window;
       ProcessorSharingContainer containerToRefresh;
 
+      public long getAge() { return age;}
       public ProcessorSharingContainer(ProcessorSharingContainer another) {
          this.container = another.container; // you can access
          this.age = another.age;
