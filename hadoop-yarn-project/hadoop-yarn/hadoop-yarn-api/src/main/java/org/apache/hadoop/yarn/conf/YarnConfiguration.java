@@ -1219,6 +1219,13 @@ public class YarnConfiguration extends Configuration {
       NM_PREFIX + "processorsharing.load-balancing-parameter";
   public static final String DEFAULT_LOAD_BALANCING_PARAMETER = "Youngest";
   
+  /** No. of milliseconds for ProcessorSharing Window */
+  public static final String NM_PREEMPTION_ALLOWED = NM_PREFIX + "processorsharing.nr-preemptions-allowed";
+  public static final int DEFAULT_NM_PREEMPTION_ALLOWED = 3;
+  
+  /** No. of milliseconds for ProcessorSharing Window */
+  public static final String NM_WINDOWS_AFTER_PREEMPTION = NM_PREFIX + "processorsharing.nr-windows-after-preemption";
+  public static final int DEFAULT_NM_WINDOWS_AFTER_PREEMPTION = 2;
   // ******  PROCESSOR SHARING CONFIGS ******
   
   

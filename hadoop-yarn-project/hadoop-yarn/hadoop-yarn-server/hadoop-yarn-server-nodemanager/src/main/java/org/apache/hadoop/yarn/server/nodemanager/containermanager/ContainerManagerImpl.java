@@ -271,6 +271,8 @@ public class ContainerManagerImpl extends CompositeService implements
         loadbalancing = conf.get(YarnConfiguration.LOAD_BALANCING_PARAMETER, YarnConfiguration.DEFAULT_LOAD_BALANCING_PARAMETER);
         LOG.info("PAMELA loadbalancing " + loadbalancing);
         this.processorSharingMonitor = new ProcessorSharingMonitor(this.processorSharingWindow, processorSharingFineGrainedInterval, minimumMemory, minimumCpu, maximumConcurrentContainers);
+        this.processorSharingMonitor.nrPreemptionsAllowed = conf.getInt(YarnConfiguration.NM_PREEMPTION_ALLOWED, YarnConfiguration.DEFAULT_NM_PREEMPTION_ALLOWED);
+        this.processorSharingMonitor.nrWindowsAfterPreemption = conf.getInt(YarnConfiguration.NM_WINDOWS_AFTER_PREEMPTION, YarnConfiguration.DEFAULT_NM_WINDOWS_AFTER_PREEMPTION);
     }
     super.serviceInit(conf);
     recover();
@@ -1184,6 +1186,7 @@ public class ContainerManagerImpl extends CompositeService implements
    private class ProcessorSharingContainer {
       Container container;
       ContainerId containerId;
+      int timesPreempted;      
       long age;
       long lastStarted_time_ms;
       long time_left_ps_window;
@@ -1193,6 +1196,7 @@ public class ContainerManagerImpl extends CompositeService implements
       public ProcessorSharingContainer(ProcessorSharingContainer another) {
          this.container = another.container; // you can access
          this.age = another.age;
+         this.timesPreempted = 0;
          this.containerId = another.containerId;
          this.lastStarted_time_ms = another.lastStarted_time_ms;
          this.time_left_ps_window = another.time_left_ps_window;
@@ -1214,6 +1218,7 @@ public class ContainerManagerImpl extends CompositeService implements
          long progressNow = System.currentTimeMillis() - lastStarted_time_ms;
          this.age += progressNow;
          this.time_left_ps_window = -1;
+         this.timesPreempted += 1;
       }
 
       public void updateAge() {
@@ -1262,6 +1267,9 @@ public class ContainerManagerImpl extends CompositeService implements
       int okToRefresh;
       AtomicInteger lastRequestID;
 
+      public int nrPreemptionsAllowed;
+      public int nrWindowsAfterPreemption;
+      
       public ProcessorSharingMonitor(long processorSharingInterval, int fineGrainedMonitorInterval, int minimumMemory,
             double minimumCpu, int maximumConcurrentContainers) {
          LOG.info("PAMELA ProcessorSharingMonitor created");
@@ -1553,14 +1561,14 @@ public class ContainerManagerImpl extends CompositeService implements
                   ProcessorSharingContainer executingContainer = executingIterator.next();
                   executingContainer.time_left_ps_window -= fineGrainedMonitorInterval;
                   LOG.info("PAMELA NEW ProcessorSharingMonitor " + executingContainer.containerId + " time_left_ps_window "
-                        + executingContainer.time_left_ps_window + " age " + executingContainer.age);
+                        + executingContainer.time_left_ps_window + " age " + executingContainer.age + " timesPreempted " + executingContainer.timesPreempted);
                   
                   boolean removed = youngestContainersAges.remove(executingContainer);
                   executingContainer.updateAge();
                   LOG.info("PAMELA oldestyoungest ps window check removed? " + removed + " new age " + executingContainer.age);
                   youngestContainersAges.add(executingContainer);                  
                   
-                  if (executingContainer.time_left_ps_window == 0) {
+                  if (executingContainer.time_left_ps_window == 0 && executingContainer.timesPreempted <= this.nrPreemptionsAllowed) { // Add anti-starvation
                      if (suspendedIterator.hasNext()) {
                         ProcessorSharingContainer suspendedContainer = suspendedIterator.next();
                         if ((executingContainer.age - suspendedContainer.age) >= processorSharingInterval/2) { // TODO dont know if its a good value
@@ -1579,6 +1587,10 @@ public class ContainerManagerImpl extends CompositeService implements
                         LOG.info("PAMELA NEW ProcessorSharingMonitor FINISHED PS " + executingContainer.containerId + " nothing to resume ");
                         executingContainer.time_left_ps_window = processorSharingInterval;
                      }
+                  } else if(executingContainer.time_left_ps_window == 0){
+                     LOG.info("PAMELA ProcessorSharingMonitor " + executingContainer.containerId + " preemption threshold reached: " + executingContainer.timesPreempted + " going to execute for " + processorSharingWindow*this.nrWindowsAfterPreemption);
+                     executingContainer.timesPreempted = 0;
+                     executingContainer.time_left_ps_window = processorSharingWindow*this.nrWindowsAfterPreemption;
                   }
                }//for
                
