@@ -68,7 +68,7 @@ public class TestResourceTrackerOnHA extends ProtocolHATestBase{
     failoverThread = createAndStartFailoverThread();
     NodeStatus status =
         NodeStatus.newInstance(NodeId.newInstance("localhost", 0), 0, null,
-            null, null);
+            null, null, 0);
     NodeHeartbeatRequest request2 =
         NodeHeartbeatRequest.newInstance(status, null, null);
     resourceTracker.nodeHeartbeat(request2);

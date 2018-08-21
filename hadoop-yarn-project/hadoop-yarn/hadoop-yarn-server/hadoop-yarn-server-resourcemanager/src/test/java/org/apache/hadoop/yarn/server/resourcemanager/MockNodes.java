@@ -222,6 +222,18 @@ public class MockNodes {
       }
       return CommonNodeLabelsManager.EMPTY_STRING_SET;
     }
+
+   @Override
+   public long getOldestYoungestAge() {
+      // TODO Auto-generated method stub
+      return 0;
+   }
+
+   @Override
+   public void updateOldestYoungestAge(long oldestYoungestAge) {
+      // TODO Auto-generated method stub
+      
+   }
   };
 
   private static RMNode buildRMNode(int rack, final Resource perNode,
