@@ -42,12 +42,22 @@ public class RMNodeWrapper implements RMNode {
   private RMNode node;
   private List<UpdatedContainerInfo> updates;
   private boolean pulled = false;
-  
+  private long oldestYoungestAge;
+
   public RMNodeWrapper(RMNode node) {
     this.node = node;
     updates = node.pullContainerUpdates();
   }
   
+  public long getOldestYoungestAge() {
+    return oldestYoungestAge;
+  }
+
+  @Override
+  public void updateOldestYoungestAge(long oldestYoungestAge) {
+    this.oldestYoungestAge = oldestYoungestAge;     
+  }
+
   @Override
   public NodeId getNodeID() {
     return node.getNodeID();

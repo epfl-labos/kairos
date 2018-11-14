@@ -52,6 +52,15 @@ public class MockContainer implements Container {
   private final Map<Path, List<String>> resource =
       new HashMap<Path, List<String>>();
   private RecordFactory recordFactory;
+  private boolean wasLaunched;
+  @Override
+  public boolean getWasLaunched() {
+    return wasLaunched;
+  }
+  @Override
+  public int getUpdateRequestResult(int updateRequestId) {
+    return 0;
+  }
   private final ContainerTokenIdentifier containerTokenIdentifier;
 
   public MockContainer(ApplicationAttemptId appAttemptId,
