@@ -409,7 +409,7 @@ public class ResourceTrackerService extends AbstractService implements
     }
     
     //ProcessorSharing
-    LOG.info("PAMELA node "+rmNode.getNodeID()+" updating oldestyoungestage to "+remoteNodeStatus.getOldestYoungestAge());
+    LOG.info("KAIROS logging node "+rmNode.getNodeID()+" updating oldestyoungestage to "+remoteNodeStatus.getOldestYoungestAge());
     rmNode.updateOldestYoungestAge(remoteNodeStatus.getOldestYoungestAge());
     //this.rmContext.getScheduler().updateNodeOldestYoungestAge(rmNode);
     

@@ -332,7 +332,7 @@ public abstract class AbstractCSQueue implements CSQueue {
     }
     CSQueueUtils.updateQueueStatistics(resourceCalculator, this, getParent(),
         clusterResource, minimumAllocation);
-    //LOG.info("abstractCSQueue:used allcoate "+resource);
+    LOG.info("abstractCSQueue:used allcoate "+resource);
   }
   
   protected synchronized void releaseResource(Resource clusterResource,

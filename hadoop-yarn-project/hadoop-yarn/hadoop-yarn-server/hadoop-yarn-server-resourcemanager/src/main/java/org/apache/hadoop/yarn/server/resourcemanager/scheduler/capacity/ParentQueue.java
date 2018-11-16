@@ -90,7 +90,7 @@ public class ParentQueue extends AbstractCSQueue {
     float rawCapacity = cs.getConfiguration().getNonLabeledQueueCapacity(getQueuePath());
     this.processorSharingEnabled = cs.getConfiguration().getProcessorSharingEnabled();
     this.maxNumConcurrentContainers = cs.getConfiguration().getMaximumContainersPerNode();
-    		
+
     if (rootQueue &&
         (rawCapacity != CapacitySchedulerConfiguration.MAXIMUM_CAPACITY_VALUE)) {
       throw new IllegalArgumentException("Illegal " +
@@ -313,7 +313,7 @@ public class ParentQueue extends AbstractCSQueue {
             " is STOPPED. Cannot accept submission of application: " +
             applicationId);
       }
-      LOG.info("PAMELA going to addApplication "+applicationId+" to ParentQueue");
+      LOG.info("KAIROS logging going to addApplication "+applicationId+" to ParentQueue");
       addApplication(applicationId, user);
     }
     
@@ -396,7 +396,7 @@ public class ParentQueue extends AbstractCSQueue {
     //每次分配一个container 给node节点上的应用，直到不能非配为止   
     //         normal old way                                                  our way    assign only one container at a time if maxNumConcurrentContainers was not exceeded
     while ((!processorSharingEnabled && canAssign(clusterResource, node)) || (processorSharingEnabled && !assigned && (maxNumConcurrentContainers - node.getNumContainers()>0))) {
-      LOG.info("PAMELA 2. will try to assign containers to node "+node.getNodeName());
+      LOG.info("KAIROS logging 2. will try to assign containers to node "+node.getNodeName());
       if (LOG.isDebugEnabled()) 
         LOG.info("Trying to assign containers to child-queue of " + getQueueName());
       
@@ -444,7 +444,7 @@ public class ParentQueue extends AbstractCSQueue {
             " cluster=" + clusterResource+
             " resume size="+assignment.getContainersToResume().size());*/
         assigned = true;
-        LOG.info("PAMELA assigned container to node " + node.getNodeName());
+        LOG.info("KAIROS logging assigned container to node " + node.getNodeName());
       } else {
         break;
       }
@@ -467,7 +467,7 @@ public class ParentQueue extends AbstractCSQueue {
         }
         break;
       }
-      LOG.info("PAMELA processorSharingEnabled " + processorSharingEnabled + " assigned? " + assigned + " should assign more? "+ ((!processorSharingEnabled && canAssign(clusterResource, node)) || (processorSharingEnabled && !assigned && (maxNumConcurrentContainers - node.getNumContainers()>0))));
+      LOG.info("KAIROS logging processorSharingEnabled " + processorSharingEnabled + " assigned? " + assigned + " should assign more? "+ ((!processorSharingEnabled && canAssign(clusterResource, node)) || (processorSharingEnabled && !assigned && (maxNumConcurrentContainers - node.getNumContainers()>0))));
      } 
     return assignment;
   }
@@ -528,7 +528,7 @@ public class ParentQueue extends AbstractCSQueue {
       // Get ResourceLimits of child queue before assign containers
       ResourceLimits childLimits =
           getResourceLimitsOfChild(childQueue, cluster, limits);
-      LOG.info("PAMELA 3 calling childqueue assignContainers node "+node.getNodeName());
+      LOG.info("KAIROS logging 3 calling childqueue assignContainers node "+node.getNodeName());
       assignment = childQueue.assignContainers(cluster, node, childLimits);
      if(LOG.isDebugEnabled())
       {
@@ -545,7 +545,7 @@ public class ParentQueue extends AbstractCSQueue {
         iter.remove();
         LOG.info("Re-sorting assigned queue: " + childQueue.getQueuePath() + 
             " stats: " + childQueue);
-        LOG.info("PAMELA 3 finished childQueue for node "+node.getNodeName());
+        LOG.info("KAIROS logging 3 finished childQueue for node "+node.getNodeName());
        	childQueues.add(childQueue);
         if (LOG.isDebugEnabled()) {
           printChildQueues();

@@ -777,7 +777,7 @@ public class LeafQueue extends AbstractCSQueue {
   public synchronized CSAssignment assignContainers(Resource clusterResource,
       FiCaSchedulerNode node, ResourceLimits currentResourceLimits) {
     updateCurrentResourceLimits(currentResourceLimits, clusterResource);
-    LOG.info("PAMELA 4 assignContainers node "+node.getNodeName());
+    LOG.info("KAIROS logging 4 assignContainers node "+node.getNodeName());
     
     if(LOG.isDebugEnabled()) {
       LOG.info("assignContainers: node=" + node.getNodeName() + " #applications=" + activeApplications.size());
@@ -792,7 +792,7 @@ public class LeafQueue extends AbstractCSQueue {
     // Check for reserved resources
     RMContainer reservedContainer = node.getReservedContainer();
     if (reservedContainer != null) {
-        LOG.info("PAMELA reservedContainer != null SHOULD NOT COME HERE");
+        LOG.info("KAIROS logging reservedContainer != null SHOULD NOT COME HERE");
       FiCaSchedulerApp application = 
           getApplication(reservedContainer.getApplicationAttemptId());
       synchronized (application) {
@@ -803,7 +803,7 @@ public class LeafQueue extends AbstractCSQueue {
     
     //try to resume containers which are suspended in fifo order
     for(ApplicationAttemptId appId: this.suspendedApps){
-        LOG.info("PAMELA for suspendedApps "+appId+ " SHOULD NOT COME HERE");
+        LOG.info("KAIROS logging for suspendedApps "+appId+ " SHOULD NOT COME HERE");
     	FiCaSchedulerApp app = this.applicationAttemptMap.get(appId);
     	LOG.info("get app suspended "+app.getApplicationAttemptId()+" suspended size "+app.getContainersSuspended().size());
     	synchronized(app){
@@ -890,7 +890,7 @@ public class LeafQueue extends AbstractCSQueue {
       }
 
       synchronized (application) {
-        LOG.info("PAMELA for activeApplications application "+application.getApplicationAttemptId());
+        LOG.info("KAIROS logging for activeApplications application "+application.getApplicationAttemptId());
         // Check if this resource is on the blacklist
         if (SchedulerAppUtils.isBlacklisted(application, node, LOG)) {
           continue;
@@ -903,7 +903,7 @@ public class LeafQueue extends AbstractCSQueue {
           if (null == anyRequest) {
             continue;
           }
-          LOG.info("PAMELA get application "+application.getApplicationId()+" request numContainers "+anyRequest.getNumContainers()+" capability "+anyRequest.getCapability()+" totalRequiredResources "+ application.getTotalRequiredResources(priority)+ " priority "+priority);
+          LOG.info("KAIROS logging get application "+application.getApplicationId()+" request numContainers "+anyRequest.getNumContainers()+" capability "+anyRequest.getCapability()+" totalRequiredResources "+ application.getTotalRequiredResources(priority)+ " priority "+priority);
           
           // Required resource
           Resource required = anyRequest.getCapability();
@@ -950,7 +950,7 @@ public class LeafQueue extends AbstractCSQueue {
           application.addSchedulingOpportunity(priority);
           
           // Try to schedule
-          LOG.info("PAMELA going to call assignContainersOnNode "+node.getNodeName()+" application "+application.getApplicationAttemptId()+" priority "+priority);
+          LOG.info("KAIROS logging going to call assignContainersOnNode "+node.getNodeName()+" application "+application.getApplicationAttemptId()+" priority "+priority);
           CSAssignment assignment =  
             assignContainersOnNode(clusterResource, node, application, priority, null, currentResourceLimits);
                   
@@ -966,7 +966,7 @@ public class LeafQueue extends AbstractCSQueue {
           if (Resources.greaterThan(
               resourceCalculator, clusterResource, assigned, Resources.none())) {
         	  
-            LOG.info("PAMELA application "+application.getApplicationId()+" got assignment on node "+node.getNodeName()+" resource assigned "+assignment.getResource());
+            LOG.info("KAIROS logging application "+application.getApplicationId()+" got assignment on node "+node.getNodeName()+" resource assigned "+assignment.getResource());
 
             // Book-keeping 
             // Note: Update headroom to account for current allocation too...
@@ -983,7 +983,7 @@ public class LeafQueue extends AbstractCSQueue {
               application.resetSchedulingOpportunities(priority);
             }
             
-            LOG.info("PAMELA 4 finish assigned containers on node "+node.getNodeName());
+            LOG.info("KAIROS logging 4 finish assigned containers on node "+node.getNodeName());
             // Done
             return assignment;
           } else {
@@ -1015,7 +1015,7 @@ public class LeafQueue extends AbstractCSQueue {
       return new CSAssignment(application, rmContainer);
     }
 
-    LOG.info("PAMELA assignReservedContainer going to assign a container on node "+node.getNodeName()+" for application "+application.getApplicationAttemptId());
+    LOG.info("KAIROS logging assignReservedContainer going to assign a container on node "+node.getNodeName()+" for application "+application.getApplicationAttemptId());
     // Try to assign if we have sufficient resources
     assignContainersOnNode(clusterResource, node, application, priority, 
         rmContainer, new ResourceLimits(Resources.none()));
@@ -1311,7 +1311,7 @@ public class LeafQueue extends AbstractCSQueue {
             allocatedContainer, currentResoureLimits);
       if (Resources.greaterThan(resourceCalculator, clusterResource,
           assigned, Resources.none())) {
-        LOG.info("PAMELA assigned container NODE_LOCAL "+node.getNodeName());
+        LOG.info("KAIROS logging assigned container NODE_LOCAL "+node.getNodeName());
         //update locality statistics
         if (allocatedContainer.getValue() != null) {
           application.incNumAllocatedContainers(NodeType.NODE_LOCAL,
@@ -1339,7 +1339,7 @@ public class LeafQueue extends AbstractCSQueue {
             allocatedContainer, currentResoureLimits);
       if (Resources.greaterThan(resourceCalculator, clusterResource,
           assigned, Resources.none())) {
-        LOG.info("PAMELA assigned container RACK_LOCAL "+node.getNodeName());
+        LOG.info("KAIROS logging assigned container RACK_LOCAL "+node.getNodeName());
 
         //update locality statistics
         if (allocatedContainer.getValue() != null) {
@@ -1366,7 +1366,7 @@ public class LeafQueue extends AbstractCSQueue {
           assignOffSwitchContainers(clusterResource, offSwitchResourceRequest,
             node, application, priority, reservedContainer,
             allocatedContainer, currentResoureLimits);
-      LOG.info("PAMELA assigned container OFF_SWITCH "+node.getNodeName());
+      LOG.info("KAIROS logging assigned container OFF_SWITCH "+node.getNodeName());
 
       // update locality statistics
       if (allocatedContainer.getValue() != null) {
@@ -1678,7 +1678,7 @@ public class LeafQueue extends AbstractCSQueue {
     int availableContainers = resourceCalculator.computeAvailableContainers(available, capability);
     if (processorSharingEnabled) {
         availableContainers = this.maxContainersPerNode - node.getRunningContainers().size();
-        LOG.info("PAMELA availableContainers would have been "+available.getMemory()/capability.getMemory()+ " instead we are saying it has " + availableContainers + " availableContainers, numRunningContainers " + node.getRunningContainers().size());
+        LOG.info("KAIROS logging availableContainers would have been "+available.getMemory()/capability.getMemory()+ " instead we are saying it has " + availableContainers + " availableContainers, numRunningContainers " + node.getRunningContainers().size());
     }
     
     boolean needToUnreserve = Resources.greaterThan(resourceCalculator,clusterResource,
@@ -1730,7 +1730,7 @@ public class LeafQueue extends AbstractCSQueue {
 
       // Inform the node
       node.allocateContainer(allocatedContainer);
-      LOG.info("PAMELA assigned container "+container.getId()+" to node "+node.getNodeID()+" resources assigned "+container.getResource());
+      LOG.info("KAIROS logging assigned container "+container.getId()+" to node "+node.getNodeID()+" resources assigned "+container.getResource());
 
       LOG.info("assignedContainer" +
           " application attempt=" + application.getApplicationAttemptId() +

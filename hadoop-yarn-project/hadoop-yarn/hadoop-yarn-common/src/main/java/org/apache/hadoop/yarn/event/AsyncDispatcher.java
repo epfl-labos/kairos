@@ -161,7 +161,6 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
 
   @SuppressWarnings("unchecked")
   protected void dispatch(Event event) {
-    LOG.info("PAMELA Dispatching the event " + event.getClass().getName() + "." + event.toString());
     //all events go thru this loop
     if (LOG.isDebugEnabled()) {
       LOG.debug("Dispatching the event " + event.getClass().getName() + "."
@@ -173,7 +172,6 @@ public class AsyncDispatcher extends AbstractService implements Dispatcher {
     try{
       EventHandler handler = eventDispatchers.get(type);
       if(handler != null) {
-        LOG.info("PAMELA Dispatcher going to handle the event " + event.getClass().getName() + " type " + type+ " handler is of class "+handler.getClass().getName());
         handler.handle(event);
       } else {
         throw new Exception("No handler for registered for " + type);

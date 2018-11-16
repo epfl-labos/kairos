@@ -520,7 +520,7 @@ public class RMContainerImpl implements RMContainer {
 	    @Override
 	    public RMContainerState transition(RMContainerImpl container,
 	        RMContainerEvent event) {
-	    	LOG.info("PAMELA : RESUMING  container "+container.containerId+" from dehydrated , preempted resources so far "+container.getPreemptedResource()+" if no preempted resources then RUNNING");
+	    	LOG.info("KAIROS logging: RESUMING  container "+container.containerId+" from dehydrated , preempted resources so far "+container.getPreemptedResource()+" if no preempted resources then RUNNING");
 	     container.resumeTime.add(System.currentTimeMillis());
 		 if(Resources.equals(container.getPreemptedResource(),Resources.none())){
 			//if all the preempted resource has been resumed  
@@ -543,7 +543,7 @@ public class RMContainerImpl implements RMContainer {
 		  Resource resource = container.getLastPreemptedResource();  
 		  container.finishedStatus = finishedEvent.getRemoteContainerStatus();
 		  container.isSuspending   = true;
-		  LOG.info("PAMELA : SUSPENDING container "+container.containerId+" resources so far "+resource+" finishedStatus "+finishedEvent.getRemoteContainerStatus());
+		  LOG.info("KAIROS logging: SUSPENDING container "+container.containerId+" resources so far "+resource+" finishedStatus "+finishedEvent.getRemoteContainerStatus());
 		  
 		  //update preempt metrics
 		  RMAppAttempt rmAttempt = container.rmContext.getRMApps()

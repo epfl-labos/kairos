@@ -1167,7 +1167,7 @@ public class YarnConfiguration extends Configuration {
   public static final long DEFAULT_NM_SLEEP_DELAY_BEFORE_SIGKILL_MS =
       250;
 
-  // ******  PROCESSOR SHARING CONFIGS ******
+  // ******  KAIROS CONFIGS ******
   
   /** No. of milliseconds for ProcessorSharing Window */
   public static final String NM_PROCESSOR_SHARING_ENABLE =
@@ -1226,7 +1226,7 @@ public class YarnConfiguration extends Configuration {
   /** No. of milliseconds for ProcessorSharing Window */
   public static final String NM_WINDOWS_AFTER_PREEMPTION = NM_PREFIX + "processorsharing.nr-windows-after-preemption";
   public static final int DEFAULT_NM_WINDOWS_AFTER_PREEMPTION = 2;
-  // ******  PROCESSOR SHARING CONFIGS ******
+  // ******  KAIROS CONFIGS ******
   
   
   /** Max time to wait for a process to come up when trying to cleanup

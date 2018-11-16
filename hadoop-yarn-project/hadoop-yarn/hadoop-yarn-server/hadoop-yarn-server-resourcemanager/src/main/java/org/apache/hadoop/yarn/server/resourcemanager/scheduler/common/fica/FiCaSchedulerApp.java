@@ -157,7 +157,6 @@ public FiCaSchedulerApp(ApplicationAttemptId applicationAttemptId,
 	            event)
 	  );
 	 
-	  LOG.info("PAMELA suspend "+rmContainer.getContainerId()+" containerStatus "+containerStatus.getState());
 	  // Update usage metrics,we release resource here,to support increamental suspension  
 	  Resource toPreempted = rmContainer.getLastPreemptedResource();
 	  queue.getMetrics().releaseResources(getUser(), 1, toPreempted);

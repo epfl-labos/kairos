@@ -399,10 +399,8 @@ public class ProportionalCapacityPreemptionPolicy implements SchedulingEditPolic
       if (Resources
           .greaterThan(rc, tot_guarant, q.guaranteed, Resources.none())) {
         nonZeroGuarQueues.add(q);
-        LOG.info("PAMELA adding queue "+q.queueName+" to nonZeroGuarQueues");
       } else {
         zeroGuarQueues.add(q);
-        LOG.info("PAMELA adding queue "+q.queueName+" to zeroGuarQueues");
       }
     }
 
@@ -712,14 +710,12 @@ public class ProportionalCapacityPreemptionPolicy implements SchedulingEditPolic
       }
       // we act only if we are violating balance by more than
       // maxIgnoredOverCapacity
-      //LOG.info("PAMELA calculator "+rc.getClass().getName()+" clusterResource " + clusterResource + " qT.current " + qT.current + " guaranteed " + qT.guaranteed + "* 1.0 + "+maxIgnoredOverCapacity);
       if (Resources.greaterThan(rc, clusterResource, qT.current,
           Resources.multiply(qT.guaranteed, 1.0 + maxIgnoredOverCapacity))) {
         // we introduce a dampening factor naturalTerminationFactor that
         // accounts for natural termination of containers
         Resource resToObtain =
           Resources.multiply(qT.toBePreempted, naturalTerminationFactor);
-        LOG.info("PAMELA "+" qT.toBePreempted "+qT.toBePreempted+"* naturalTerminationFactor "+naturalTerminationFactor+" = "+resToObtain);
         Resource skippedAMSize = Resource.newInstance(0, 0);
         
         LOG.info("try to preempt: "+resToObtain+" from queue: "+qT.queueName);
@@ -1243,7 +1239,6 @@ public class ProportionalCapacityPreemptionPolicy implements SchedulingEditPolic
 
     public void assignPreemption(float scalingFactor,
         ResourceCalculator rc, Resource clusterResource) {
-      LOG.info("PAMELA assignPreemption queue  "+queueName+" current  "+current+" idealAssigned "+idealAssigned+ " scalingFactor "+scalingFactor);
       if (Resources.greaterThan(rc, clusterResource, current, idealAssigned)) {
     	  //to avoid negative memory or cores
     	  //we only prempte current.cores > idealAssigned.cores || current.memory > idealAssigned.memory
