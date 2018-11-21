@@ -596,7 +596,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
                     .getContainerTokenSecretManager().getCurrentKey(),
                   NodeStatusUpdaterImpl.this.context.getNMTokenSecretManager()
                     .getCurrentKey());
-            LOG.info("PAMELA heartbeat request OldestYoungestAge "+request.getNodeStatus().getOldestYoungestAge());
+            LOG.info("KAIROS logging heartbeat request OldestYoungestAge "+request.getNodeStatus().getOldestYoungestAge());
             response = resourceTracker.nodeHeartbeat(request);
             //get next heartbeat interval from response
             nextHeartBeatInterval = response.getNextHeartBeatInterval();

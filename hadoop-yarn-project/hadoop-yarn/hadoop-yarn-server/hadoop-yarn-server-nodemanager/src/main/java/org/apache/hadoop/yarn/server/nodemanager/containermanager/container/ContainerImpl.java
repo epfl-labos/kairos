@@ -87,7 +87,6 @@ import org.apache.hadoop.yarn.state.StateMachineFactory;
 import org.apache.hadoop.yarn.util.Clock;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.SystemClock;
-
 import org.apache.hadoop.yarn.server.api.protocolrecords.NodeContainerUpdate;
 import org.apache.hadoop.util.Shell;
 import org.apache.hadoop.util.StringUtils;
@@ -827,13 +826,13 @@ private long containerLaunchStartTime;
 	    public void transition(ContainerImpl container, ContainerEvent event) {
 	    	//try {	    	
 	    	ContainerResourceUpdate updateEvent = (ContainerResourceUpdate) event;
-	    	LOG.info("PAMELA container "+event.getContainerID()+" receive resource update event "
+	    	LOG.info("KAIROS container "+event.getContainerID()+" receive resource update event "
 	    	    	+" memory "+updateEvent.getNodeContainerUpdate().getMemory()
 	    	    	+" cores "+updateEvent.getNodeContainerUpdate().getCores()
 	    	    	+" suspend "+updateEvent.getNodeContainerUpdate().getSuspend()
 	    	    	+" resume "+updateEvent.getNodeContainerUpdate().getResume());
 	    	//throw new Exception("ResourceUpdateTransition");
-	    	//} catch (Exception e){LOG.info("PAMELA full stack trace ResourceUpdateTransition ",e);}	    	
+	    	//} catch (Exception e){LOG.info("KAIROS full stack trace ResourceUpdateTransition ",e);}	    	
 	    	container.ProcessResourceUpdate(updateEvent.getNodeContainerUpdate());
 	    }
 	  }
@@ -1102,7 +1101,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
                cpuUpdateActorList.add(new Pair<Integer, Set<Integer>>(updateRequestId, cores));
                // ProcessorSharing, we need to use a fraction of the CPU
                synchronized (cpuFractionUpdateActorList) {
-                  LOG.info("PAMELA container " + containerId + " adding fraction of cores to be " + nodeContainerUpdate.getCores());
+                  LOG.info("KAIROS container " + containerId + " adding fraction of cores to be " + nodeContainerUpdate.getCores());
                   if (cpuFractionUpdateActorList.size() > 0) {
                      cpuFractionUpdateActorList.clear();
                   }
@@ -1165,14 +1164,14 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
                if (memoryUpdateActorList.size() > 0) {
                   memoryUpdateActorList.clear();
                }
-               LOG.info("PAMELA container " + getContainerId() + " update memory " + toAdded + " state is " + stateMachine.getCurrentState()
+               LOG.info("KAIROS container " + getContainerId() + " update memory " + toAdded + " state is " + stateMachine.getCurrentState()
                      + " resumed? " + resumed);
                memoryUpdateActorList.addAll(toAdded);
             }
          }
          
          synchronized (updateRequestsResults) {
-            LOG.info("PAMELA container " + getContainerId() + " initializing updaterequestresult for update "
+            LOG.info("KAIROS container " + getContainerId() + " initializing updaterequestresult for update "
                   + nodeContainerUpdate.getUpdateRequestID() + " to -1");
             updateRequestsResults.put(nodeContainerUpdate.getUpdateRequestID(), -1);
          }
@@ -1534,7 +1533,7 @@ public void ProcessNodeContainerUpdate(NodeContainerUpdate nodeContainerUpdate) 
       this.writeLock.lock();
 
       ContainerId containerID = event.getContainerID();
-      LOG.info("PAMELA handling event in container " + containerID + " of type " + event.getType());
+      LOG.info("KAIROS handling event in container " + containerID + " of type " + event.getType());
 
       LOG.debug("Processing " + containerID + " of type " + event.getType());
 

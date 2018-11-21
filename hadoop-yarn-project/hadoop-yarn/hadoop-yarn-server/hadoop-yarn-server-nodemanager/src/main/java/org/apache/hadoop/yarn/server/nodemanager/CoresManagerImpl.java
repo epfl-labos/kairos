@@ -89,7 +89,7 @@ public class CoresManagerImpl implements CoresManager {
 	
 	@Override
 	public synchronized Set<Integer> allocateCores(ContainerId cntId, int num){		
-      LOG.info("PAMELA allocate " + num + " cores " + cntId + " totalCores " + totalCores + " unUsedCores " + unUsedCores + " coresToContainer "+ coresToContainer.values());
+      LOG.info("KAIROS allocate " + num + " cores " + cntId + " totalCores " + totalCores + " unUsedCores " + unUsedCores + " coresToContainer "+ coresToContainer.values());
       Set<Integer> returnedResults = new HashSet<Integer>();
       if (processorSharingEnabled && unUsedCores.isEmpty())
          returnedResults.add(reservedPSCore); // For launching phase use core 0 if 
@@ -144,7 +144,7 @@ public class CoresManagerImpl implements CoresManager {
 		
 		for(Integer core : cores){
 			coresToContainer.get(core).remove(cntId);
-         LOG.info("release " + core + " from " + cntId + " left " + coresToContainer.get(core));
+         LOG.info("KAIROS release " + core + " from " + cntId + " left " + coresToContainer.get(core));
          if(coresToContainer.get(core).size() == 0){
             unUsedCores.add(core);
          }
@@ -160,7 +160,7 @@ public class CoresManagerImpl implements CoresManager {
 		    containerToCores.remove(cntId);
 		}
 		
-		LOG.info("release cpuset "+cores + " unUsedCores " + unUsedCores);
+		LOG.info("KAIROS release cpuset "+cores + " unUsedCores " + unUsedCores);
 	}
 	
   @Override
@@ -196,7 +196,7 @@ public class CoresManagerImpl implements CoresManager {
                }
                toRemoved.add(core);
             }
-            LOG.info("PAMELA SUSPEND " + cntId + " releasing cores " + toRemoved);
+            LOG.info("KAIROS SUSPEND " + cntId + " releasing cores " + toRemoved);
             this.releaseCoresforContainer(cntId, toRemoved);
 
             // for num >= cores.size(), we need to give more cores to this container
@@ -205,7 +205,7 @@ public class CoresManagerImpl implements CoresManager {
             int required = num - cores.size();
             if (required > 0) {
                Set<Integer> newAllocated = this.getAvailableCores(required);
-               LOG.info("PAMELA RESUME " + cntId + " newAllocated " + newAllocated);
+               LOG.info("KAIROS RESUME " + cntId + " newAllocated " + newAllocated);
                returnedCores.addAll(newAllocated);
                this.allocateCoresforContainer(newAllocated, cntId);
             }
@@ -214,7 +214,7 @@ public class CoresManagerImpl implements CoresManager {
          // for a fully preempted container
       } else {
          Set<Integer> newAllocated = this.getAvailableCores(num);
-         LOG.info("PAMELA " + cntId + " resetCores " + cores + " newAllocated " + newAllocated);
+         LOG.info("KAIROS " + cntId + " resetCores " + cores + " newAllocated " + newAllocated);
          returnedCores.addAll(newAllocated);
          this.allocateCoresforContainer(newAllocated, cntId);
       }

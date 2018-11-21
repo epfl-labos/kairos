@@ -20,9 +20,7 @@ package org.apache.hadoop.yarn.server.nodemanager;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -59,7 +57,6 @@ import org.apache.hadoop.yarn.server.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.ContainerManagerImpl;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
-import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.ContainerState;
 import org.apache.hadoop.yarn.server.nodemanager.metrics.NodeManagerMetrics;
 import org.apache.hadoop.yarn.server.nodemanager.recovery.NMLeveldbStateStoreService;
 import org.apache.hadoop.yarn.server.nodemanager.recovery.NMNullStateStoreService;
@@ -133,10 +130,8 @@ public class NodeManager extends CompositeService
       NMTokenSecretManagerInNM nmTokenSecretManager,
       NMStateStoreService stateStore,
       CoresManager coresManager) {
-	  NMContext nmContext = new NMContext(containerTokenSecretManager, nmTokenSecretManager,
-		        dirsHandler, aclsManager, stateStore,coresManager);
-
-    return nmContext;
+    return new NMContext(containerTokenSecretManager, nmTokenSecretManager,
+        dirsHandler, aclsManager, stateStore,coresManager);
   }
 
   protected void doSecureLogin() throws IOException {
@@ -477,7 +472,6 @@ public class NodeManager extends CompositeService
 	public CoresManager getCoresManager() {
 		return this.coresManager;
 	}
-
   }
 
 
