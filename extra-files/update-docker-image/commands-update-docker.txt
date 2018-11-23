@@ -1,0 +1,7 @@
+obtain new jar by modifying the hadoop source code and recompiling
+run updatedb to update the locations for the locate tool
+
+
+clush -w @bigc_all 'locate hadoop-mapreduce-client-core-2.4.0.jar | xargs ls -l'  > locate-output
+cat locate-output | awk '{print substr($1,0,11)" "$10}' > locate-output2
+./hack-docker-image-on-all-nodes.sh

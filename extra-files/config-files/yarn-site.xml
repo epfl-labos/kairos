@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<configuration>
+
+<!-- Site specific YARN configuration properties -->
+    <property> <name>yarn.nodemanager.aux-services</name> <value>mapreduce_shuffle</value> </property>
+    <property> <name>yarn.resourcemanager.resource-tracker.address</name> <value>dco-node002-10g:8025</value> </property>
+    <property> <name>yarn.resourcemanager.scheduler.address</name> <value>dco-node002-10g:8030</value> </property>
+    <property> <name>yarn.resourcemanager.address</name> <value>dco-node002-10g:8010</value> </property>
+
+<!-- correction PAMELA -->
+    <property> <name>yarn.nodemanager.docker-container-executor.image-name</name> <value>sequenceiq/hadoop-docker:2.4.0</value> </property>
+
+<!-- Docker containers -->
+    <property> <name>yarn.nodemanager.container-executor.class</name>
+              <value>org.apache.hadoop.yarn.server.nodemanager.DockerContainerExecutor</value> </property>
+    <property> <name>yarn.nodemanager.docker-container-executor.exec-name</name><value>/usr/bin/docker</value> </property>
+
+<!-- Choose scheduler -->
+    <property> <name>yarn.resourcemanager.scheduler.class</name>          
+              <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value> </property>
+              <!--<value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fifo.FifoScheduler</value></property>
+              <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fair.FairScheduler</value></property>-->
+
+<!--BIGC and PROCESSOR SHARING -->
+    <property> <name>yarn.nodemanager.resource.cpu-vcores</name> <value>5</value> </property>
+    <property> <name>yarn.nodemanager.resource.memory-mb</name> <value>20480</value> </property>
+    <property> <name>yarn.scheduler.maximum-allocation-mb</name> <value>20480</value> </property>
+
+<!-- BIGC preemptive part -->
+    <property> <name>yarn.resourcemanager.scheduler.monitor.enable</name> <value>False</value> </property>
+    <property> <name>yarn.resourcemanager.monitor.capacity.preemption.suspend</name> <value>False</value> </property>
+    <!--<property> <name>yarn.scheduler.capacity.root.default.maxresumptopportunity</name> <value>3</value> </property>-->
+
+<!-- PROCESSOR SHARING -->
+    <property> <name>yarn.nodemanager.processorsharing.enable</name> <value>True</value> </property>
+    <property> <name>yarn.nodemanager.processorsharing.window.ms</name> <value>50000</value> </property>
+    <property> <name>yarn.nodemanager.processorsharing.finegrained-interval.ms</name> <value>500</value> </property>
+    <property> <name>yarn.nodemanager.processorsharing.load-balancing-parameter</name> <value>StandardDeviation</value> </property>
+
+   <!-- for testing purposes we set the minimum the same as the current memory just in case -->
+    <property> <name>yarn.nodemanager.processorsharing.minimum-memory.mb</name> <value>5120</value> </property>
+    <property> <name>yarn.nodemanager.processorsharing.minimum-cpu</name> <value>0.1</value> </property>
+    <property> <name>yarn.nodemanager.processorsharing.maximum-concurrent-containers</name> <value>4</value> </property>
+
+<!-- Florins 
+    <property><name>yarn.scheduler.minimum-allocation-mb</name><value>512</value></property>
+    <property><name>yarn.scheduler.maximum-allocation-mb</name><value>100000</value></property>
+    <property><name>yarn.nodemanager.resource.cpu-vcores</name><value>8</value></property>
+    <property><name>yarn.nodemanager.resource.memory-mb</name><value>100000</value></property>
+    <property><name>yarn.scheduler.minimum-allocation-vcores</name><value>1</value></property>
+    <property><name>yarn.scheduler.maximum-allocation-vcores</name><value>8</value></property>
+    <property><name>yarn.nodemanager.aux-services</name><value>mapreduce_shuffle</value></property>
+    <property><name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name><value>org.apache.hadoop.mapred.ShuffleHandler</value></property>
+
+    <property><name>yarn.log-aggregation-enable</name><value>true</value></property>
+    <property><name>yarn.nodemanager.remote-app-log-dir</name><value>/HDD-2TB/logs</value></property>
+    <property><name>yarn.nodemanager.vmem-pmem-ratio</name><value>2.1</value></property>
+
+    <property><name>yarn.scheduler.fair.assignmultiple</name><value>false</value></property>
+
+  <property><name>yarn.resourcemanager.monitor.capacity.preemption.monitoring_interval</name><value>1000</value></property> 
+  <property><name>yarn.resourcemanager.monitor.capacity.preemption.total_preemption_per_round</name><value>1</value></property> 
+  <property><name>yarn.resourcemanager.monitor.capacity.preemption.natural_termination_factor</name><value>1</value></property> 
+
+-->
+
+</configuration>
