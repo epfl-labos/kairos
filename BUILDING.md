@@ -81,10 +81,11 @@ Install eclipse oxygen, point to right vm in eclipse-inst.ini:
 -vm
 <pathtojdk>/jdk1.8.0_151/bin/java
 
-# before -vmargs
+before -vmargs
 
 open eclipse, Import existing projects into workspace: 
-# this are the projects I needed for eclipse not to complain
+
+this are the projects I needed for eclipse not to complain
 
 ```
 hadoop-annotations, 
@@ -153,9 +154,8 @@ Maven build goals:
   * -Dtest.exclude.pattern=**/<TESTCLASSNAME1>.java,**/<TESTCLASSNAME2>.java
 
 ----------------------------------------------------------------------------------
-## Installing Hadoop
+## Deploying Hadoop
 
-Look for these HTML files after you build the document by the above commands.
 
   * Single Node Setup:
     hadoop-project-dist/hadoop-common/SingleCluster.html

@@ -37,7 +37,7 @@ In yarn-site.xml
  <property><name>yarn.nodemanager.docker-container-executor.image-name</name><value>sequenceiq/hadoop-docker:2.4.0</value> </property>
  <property><name>yarn.nodemanager.container-executor.class</name><value>org.apache.hadoop.yarn.server.nodemanager.DockerContainerExecutor</value></property>
  <property><name>yarn.nodemanager.docker-container-executor.exec-name</name><value>/usr/bin/docker(path to your docker)</value></property>
-````
+```
 
 Configuration for preemption
 ----------------------------
@@ -47,6 +47,7 @@ In yarn-site.xml
 ```
 <property><name>yarn.resourcemanager.scheduler.monitor.enable</name><value>True</value></property>
 ```
+
 Enable resource monitor for Capacity Scheduler.
 
 ```
