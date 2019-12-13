@@ -31,7 +31,7 @@ $ protoc --version
 ## Compiling code
 
 ```
-$ git clone git@bitbucket.org:pamedelgado/preemption-yarn-implementation.git
+$ git clone git@github.com:epfl-labos/kairos.git
 $ cd preemption-yarn-implementation
 
 $ mvn package -Psrc -DskipTests
